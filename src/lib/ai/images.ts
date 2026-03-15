@@ -19,7 +19,7 @@ export async function generateSlideImage(prompt: string) {
         ],
         parameters: {
           sampleCount: 1,
-          aspectRatio: "1:1"
+          aspectRatio: "3:4"
         }
       })
     });

@@ -1,9 +1,11 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Clock, CheckCircle2, AlertCircle, Download, ExternalLink, RefreshCw, Trash2, UserPlus } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { Clock, CheckCircle2, AlertCircle, Download, ExternalLink, RefreshCw, Trash2, UserPlus, LogOut } from 'lucide-react';
 
 export default function Dashboard() {
+  const { user, signOut } = useAuth();
   const [recentPosts, setRecentPosts] = React.useState<any[]>([]);
   const [profiles, setProfiles] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -30,6 +32,7 @@ export default function Dashboard() {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
+        .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
       
       if (!error) setProfiles(data || []);
@@ -44,6 +47,7 @@ export default function Dashboard() {
       const { data, error } = await supabase
         .from('posts')
         .select('*')
+        .eq('user_id', user?.id)
         .order('created_at', { ascending: false })
         .limit(5);
       
@@ -80,7 +84,11 @@ export default function Dashboard() {
           slides: post.content.slides,
           legenda_instagram_facebook: post.content.caption,
           topic: post.title,
-          postId: post.id
+          postId: post.id,
+          globalStyle: post.content.globalStyle,
+          twitterName: post.content.twitterName,
+          twitterHandle: post.content.twitterHandle,
+          twitterAvatar: post.content.twitterAvatar
         } 
       } 
     });
@@ -136,14 +144,23 @@ export default function Dashboard() {
             <span>Suporte Wpp</span>
           </a>
         </nav>
-        <div className="p-4 border-t border-slate-700">
+        <div className="p-4 border-t border-slate-700 space-y-3">
           <div className="flex items-center space-x-3 p-2 bg-slate-900 rounded-lg">
-            <img alt="Avatar do Usuário" className="w-10 h-10 rounded-full border-2 border-slate-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfF2gt9OTwY1pkxlzc2rPLqMARXCsmmOdhsDXtZ0WRJcHVRQMqI6Xu8QvbRmdVqCoahFDXj2sDsIXRLAT-Q7nSLREZL6GvEEd-SGsdwIse-brIEYPjdFzWyN6qiLZSC_9W2FhvlMQ5J1bAE5UzVh_bZMTLM-Anb_Sg0jQym0NRXvfn1xj8-h9hpszRrx32Ji1DpKbd_olYWJ2Xv04Xj3r8SzUKfb9vVYVAoCbhw4ZLxUE7HInqhfkCZazBMxgSIotJS5ulCbWPUUc" />
+            <div className="w-10 h-10 rounded-full border-2 border-indigo-500/50 bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-lg uppercase">
+              {user?.user_metadata?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+            </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-semibold truncate">Alex Rivera</p>
-              <p className="text-xs text-slate-500 truncate">Conta Pro</p>
+              <p className="text-sm font-semibold truncate">{user?.user_metadata?.name || 'Usuário'}</p>
+              <p className="text-xs text-slate-500 truncate">{user?.email}</p>
             </div>
           </div>
+          <button
+            onClick={signOut}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Sair da conta
+          </button>
         </div>
       </aside>
       {/* END: Sidebar */}

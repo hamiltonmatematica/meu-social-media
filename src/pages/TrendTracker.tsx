@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Sparkles, TrendingUp, Search, PlusCircle, PenTool, CheckCircle2, Clock, Globe, RefreshCw, Home } from 'lucide-react';
+import { ArrowLeft, Sparkles, TrendingUp, Search, PlusCircle, PenTool, CheckCircle2, Clock, Globe, RefreshCw, Home, Edit3, Trash2, Check } from 'lucide-react';
 import { getTrends } from '../lib/ai/research';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -54,6 +54,8 @@ export default function TrendTracker() {
   const [isScanning, setIsScanning] = useState(false);
   const [newsData, setNewsData] = useState<any>(JSON.parse(localStorage.getItem('trendData') || '{}'));
   const [lastUpdate, setLastUpdate] = useState<any>(JSON.parse(localStorage.getItem('trendUpdates') || '{}'));
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   const canUpdate = (tag: string) => {
     const last = lastUpdate[tag];
@@ -98,17 +100,51 @@ export default function TrendTracker() {
 
   const removeTag = (tagToRemove: string) => {
     if (tags.length <= 1) return;
+    if (!confirm(`Remover o tópico "${tagToRemove}"?`)) return;
     const newTags = tags.filter(t => t !== tagToRemove);
     setTags(newTags);
     if (activeTag === tagToRemove) {
       setActiveTag(newTags[0]);
     }
-
-    // Limpar dados associados à tag removida
     const newData = { ...newsData };
     delete newData[tagToRemove];
     setNewsData(newData);
     localStorage.setItem('trendData', JSON.stringify(newData));
+  };
+
+  const startEditTag = (tag: string) => {
+    setEditingTag(tag);
+    setEditValue(tag);
+  };
+
+  const saveEditTag = () => {
+    if (!editingTag || !editValue.trim()) return;
+    if (editValue.trim() === editingTag) {
+      setEditingTag(null);
+      return;
+    }
+    const newTags = tags.map(t => t === editingTag ? editValue.trim() : t);
+    setTags(newTags);
+    
+    // Migrar dados da tag antiga para a nova
+    const newData = { ...newsData };
+    if (newData[editingTag]) {
+      newData[editValue.trim()] = newData[editingTag];
+      delete newData[editingTag];
+    }
+    setNewsData(newData);
+    localStorage.setItem('trendData', JSON.stringify(newData));
+
+    const newUpdates = { ...lastUpdate };
+    if (newUpdates[editingTag]) {
+      newUpdates[editValue.trim()] = newUpdates[editingTag];
+      delete newUpdates[editingTag];
+    }
+    setLastUpdate(newUpdates);
+    localStorage.setItem('trendUpdates', JSON.stringify(newUpdates));
+    
+    if (activeTag === editingTag) setActiveTag(editValue.trim());
+    setEditingTag(null);
   };
 
   const handleCreatePost = (topic: string) => {
@@ -200,26 +236,57 @@ export default function TrendTracker() {
                     activeTag === tag ? 'opacity-100' : 'opacity-80'
                   }`}
                 >
-                  <button
-                    onClick={() => setActiveTag(tag)}
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                      activeTag === tag
-                        ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                        : 'bg-black/30 text-slate-400 border border-transparent hover:bg-white/5'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span># {tag}</span>
-                      <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  {editingTag === tag ? (
+                    <div className="w-full flex gap-1">
+                      <input
+                        type="text"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && saveEditTag()}
+                        autoFocus
+                        className="flex-1 bg-black/50 border border-indigo-500/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
+                      />
+                      <button
+                        onClick={saveEditTag}
+                        className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
                     </div>
-                  </button>
-                  {tags.length > 1 && (
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
-                      className="absolute -right-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all text-[10px]"
-                    >
-                      ✕
-                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => setActiveTag(tag)}
+                        className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+                          activeTag === tag
+                            ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                            : 'bg-black/30 text-slate-400 border border-transparent hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span># {tag}</span>
+                          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        </div>
+                      </button>
+                      <div className="absolute -right-1 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); startEditTag(tag); }}
+                          className="w-6 h-6 bg-indigo-500/30 hover:bg-indigo-500 text-indigo-400 hover:text-white rounded-full flex items-center justify-center transition-all"
+                          title="Editar tópico"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                        </button>
+                        {tags.length > 1 && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+                            className="w-6 h-6 bg-red-500/20 hover:bg-red-500 text-red-500 hover:text-white rounded-full flex items-center justify-center transition-all"
+                            title="Remover tópico"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               ))}

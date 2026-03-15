@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Sparkles, ArrowLeft, Download, Copy, Check, ChevronLeft, ChevronRight, Image as ImageIcon, Type, AlignLeft, AlignCenter, AlignRight, RefreshCw, MessageSquare, Wand2, Search, Camera, Home, Palette } from 'lucide-react';
+import { Sparkles, ArrowLeft, Download, Copy, Check, ChevronLeft, ChevronRight, Image as ImageIcon, Type, AlignLeft, AlignCenter, AlignRight, RefreshCw, MessageSquare, Wand2, Search, Camera, Home, Palette, PackageOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { generateSlideImage, translateForSearch } from '../lib/ai/images';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 const MOCK_LEGENDA = "Sua legenda magnética será gerada aqui...";
 
@@ -17,6 +18,7 @@ const MOCK_SLIDES = Array.from({ length: 1 }).map((_, i) => ({
 }));
 
 export default function AssetEditor() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const incomingData = location.state?.generatedData;
@@ -27,15 +29,15 @@ export default function AssetEditor() {
   const [titleColor, setTitleColor] = useState('#ffffff');
   const [textColor, setTextColor] = useState('#cbd5e1');
 
-  // Se houver dados vindos da IA, usamos eles. Caso contrário, usamos o MOCK.
+  // Se houver dados vindos da IA ou do Banco, usamos eles. Caso contrário, usamos o MOCK.
   const initialSlides = incomingData?.slides?.map((s: any, idx: number) => ({
-    ordem: s.ordem,
+    ordem: s.ordem || idx + 1,
     titulo: s.titulo,
     texto: s.texto,
     image_prompt: s.image_prompt,
-    // Usando uma base de imagens mais estável como fallback inicial
-    imagem: `https://images.unsplash.com/photo-${1600000000000 + (idx * 1234567)}?q=80&w=1080&auto=format&fit=crop`, 
-    alinhamento: "text-center",
+    // SE já existir uma imagem vinda do banco (s.imagem), usa ela. Senão, fallback inicial.
+    imagem: s.imagem || `https://images.unsplash.com/photo-${1600000000000 + (idx * 1234567)}?q=80&w=1080&auto=format&fit=crop`, 
+    alinhamento: s.alinhamento || "text-center",
     ai_generated: false
   })) || MOCK_SLIDES.map(s => ({ ...s, ai_generated: false }));
 
@@ -53,6 +55,299 @@ export default function AssetEditor() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [isSearchingPhotos, setIsSearchingPhotos] = useState(false);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  
+  // Novos Estilos de Layout
+  const [globalStyle, setGlobalStyle] = useState<'classic' | 'centered' | 'twitter'>(incomingData?.globalStyle || 'classic');
+  const [twitterName, setTwitterName] = useState(incomingData?.twitterName || '');
+  const [twitterHandle, setTwitterHandle] = useState(incomingData?.twitterHandle || '');
+  const [twitterAvatar, setTwitterAvatar] = useState(incomingData?.twitterAvatar || '');
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Renderiza um slide num Canvas com imagem + texto overlay (4:5 Instagram)
+  // Replica fielmente o visual do editor CSS
+  // Word wrap com suporte a enter puro (\n) para Canvas
+  const wrapText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] => {
+    // Quebra forçada por \n caso o usuário tenha digitado enter na copy
+    const paragraphs = text.split('\n');
+    const lines: string[] = [];
+    
+    paragraphs.forEach(p => {
+      const words = p.split(' ');
+      let currentLine = '';
+      words.forEach(word => {
+        const test = currentLine ? `${currentLine} ${word}` : word;
+        if (ctx.measureText(test).width > maxWidth && currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = test;
+        }
+      });
+      if (currentLine) lines.push(currentLine);
+      else lines.push(''); // placeholder para a quebra de linha visual vazia
+    });
+    return lines;
+  };
+
+  // Carrega a imagem com Promise para controlar o async drawing
+  const loadCanvasImage = (url: string): Promise<HTMLImageElement | null> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  };
+
+  // Renderiza um slide num Canvas nativo para download (1080x1350) 
+  const renderSlideToCanvas = async (slide: any): Promise<Blob> => {
+    const CANVAS_W = 1080;
+    const CANVAS_H = 1350; // 4:5
+    const canvas = document.createElement('canvas');
+    canvas.width = CANVAS_W;
+    canvas.height = CANVAS_H;
+    const ctx = canvas.getContext('2d')!;
+
+    // Fator de escala base (1080px base de tela div de 400px)
+    const S = CANVAS_W / 400;
+
+    const [mainImg, avatarImg] = await Promise.all([
+      loadCanvasImage(slide.imagem),
+      globalStyle === 'twitter' ? loadCanvasImage(twitterAvatar) : Promise.resolve(null)
+    ]);
+
+    // Background Principal
+    if (globalStyle === 'twitter') {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    } else {
+      if (mainImg) {
+        const scale = Math.max(CANVAS_W / mainImg.width, CANVAS_H / mainImg.height);
+        const w = mainImg.width * scale;
+        const h = mainImg.height * scale;
+        const x = (CANVAS_W - w) / 2;
+        const y = (CANVAS_H - h) / 2;
+        ctx.drawImage(mainImg, x, y, w, h);
+      } else {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+      }
+      
+      // Degradê
+      const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+      if (globalStyle === 'centered') {
+        grad.addColorStop(0, 'rgba(0,0,0,0.8)');
+        grad.addColorStop(0.5, 'rgba(0,0,0,0.6)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.8)');
+      } else { // classic
+        grad.addColorStop(0, 'rgba(0,0,0,0.08)');
+        grad.addColorStop(0.35, 'rgba(0,0,0,0.12)');
+        grad.addColorStop(0.55, 'rgba(0,0,0,0.40)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.92)');
+      }
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    }
+
+    // Config alinhamento de texto (para left, right, center)
+    const align = slide.alinhamento === 'text-center' ? 'center' : slide.alinhamento === 'text-right' ? 'right' : 'left';
+    ctx.textAlign = align as CanvasTextAlign;
+    
+    // Configurações e Tamanhos Base
+    const paddingX = Math.round( (globalStyle === 'twitter' ? 24 : 32) * S); // padding laterais do layout
+    const textX = align === 'center' ? CANVAS_W / 2 : align === 'right' ? CANVAS_W - paddingX : paddingX;
+    const maxWidth = CANVAS_W - (paddingX * 2);
+
+    if (globalStyle === 'classic' || globalStyle === 'centered') {
+      const titleFontSize = Math.round( (globalStyle === 'centered' ? 42 : 36) * S);
+      const titleLineHeight = Math.round(titleFontSize * 1.25);
+      ctx.font = `800 ${titleFontSize}px Inter, -apple-system, Helvetica, sans-serif`;
+      const titleLines = wrapText(ctx, (slide.titulo || ''), maxWidth);
+
+      const bodyFontSize = Math.round( (globalStyle === 'centered' ? 18 : 16) * S);
+      const bodyLineHeight = Math.round(bodyFontSize * 1.625);
+      ctx.font = `400 ${bodyFontSize}px Inter, -apple-system, Helvetica, sans-serif`;
+      const bodyLines = wrapText(ctx, (slide.texto || ''), maxWidth);
+
+      let textStartY = 0;
+      let titleStartY = 0;
+
+      if (globalStyle === 'classic') {
+        const bottomMargin = Math.round(48 * S);
+        const gapTitleBody = Math.round(36 * S); 
+        
+        const lastBodyY = CANVAS_H - bottomMargin;
+        textStartY = lastBodyY - ((bodyLines.length - 1) * bodyLineHeight);
+        
+        const lastTitleY = textStartY - gapTitleBody;
+        titleStartY = lastTitleY - ((titleLines.length - 1) * titleLineHeight);
+      } else {
+        // Centered
+        const totalTitleHeight = titleLines.length * titleLineHeight;
+        const totalBodyHeight = bodyLines.length * bodyLineHeight;
+        const gapTitleBody = Math.round(40 * S);
+        
+        const totalBlockHeight = totalTitleHeight + gapTitleBody + totalBodyHeight;
+        let currentY = (CANVAS_H - totalBlockHeight) / 2;
+        
+        titleStartY = currentY;
+        textStartY = currentY + totalTitleHeight + gapTitleBody;
+      }
+
+      // Drop shadows
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 4;
+
+      // Desenhar Title
+      ctx.fillStyle = titleColor;
+      ctx.font = `800 ${titleFontSize}px Inter, -apple-system, Helvetica, sans-serif`;
+      titleLines.forEach((line, i) => ctx.fillText(line, textX, titleStartY + (i * titleLineHeight)));
+
+      // Desenhar Body
+      ctx.fillStyle = textColor;
+      ctx.font = `400 ${bodyFontSize}px Inter, -apple-system, Helvetica, sans-serif`;
+      ctx.shadowBlur = 8;
+      bodyLines.forEach((line, i) => {
+        // Ignora linhas vazias de block \n
+        if (line) ctx.fillText(line, textX, textStartY + (i * bodyLineHeight));
+      });
+      
+      // Cleanup shadow
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+
+    } else if (globalStyle === 'twitter') {
+      let currentY = Math.round(24 * S); // start margin top
+      const startX = paddingX;
+
+      // 1. HEADER TWITTER
+      if (avatarImg) { // Draw circulo
+        const avatarSize = Math.round(48 * S);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(startX + avatarSize/2, currentY + avatarSize/2, avatarSize/2, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(avatarImg, startX, currentY, avatarSize, avatarSize);
+        ctx.restore();
+      }
+      
+      const avatarSize = Math.round(48 * S);
+      const nameX = startX + avatarSize + Math.round(12 * S);
+      
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#111827'; // gray-900
+      ctx.font = `bold ${Math.round(16 * S)}px Inter, -apple-system, Helvetica, sans-serif`;
+      ctx.fillText(twitterName, nameX, currentY + Math.round(22 * S));
+      
+      ctx.fillStyle = '#6b7280'; // gray-500
+      ctx.font = `400 ${Math.round(14 * S)}px Inter, -apple-system, Helvetica, sans-serif`;
+      ctx.fillText(twitterHandle, nameX, currentY + Math.round(40 * S));
+
+      // 2. TEXTO BODY
+      currentY += avatarSize + Math.round(20 * S);
+      ctx.textAlign = align as CanvasTextAlign;
+      
+      if (slide.titulo && slide.titulo.trim() !== '') {
+        const twTitleFont = Math.round(20 * S);
+        const twTitleLh = Math.round(twTitleFont * 1.3);
+        ctx.fillStyle = '#111827';
+        ctx.font = `bold ${twTitleFont}px Inter, sans-serif`;
+        const tLines = wrapText(ctx, (slide.titulo || ''), maxWidth);
+        tLines.forEach(line => {
+          ctx.fillText(line, textX, currentY + twTitleFont); // offset basílico
+          currentY += twTitleLh;
+        });
+        currentY += Math.round(12 * S); // gap para o texto
+      }
+
+      // text main
+      const twBodyFont = Math.round(15 * S);
+      const twBodyLh = Math.round(twBodyFont * 1.5);
+      ctx.fillStyle = '#1f2937';
+      ctx.font = `400 ${twBodyFont}px Inter, sans-serif`;
+      const bLines = wrapText(ctx, (slide.texto || ''), maxWidth);
+      bLines.forEach(line => {
+         if (line) ctx.fillText(line, textX, currentY + twBodyFont);
+         currentY += twBodyLh;
+      });
+
+      currentY += Math.round(16 * S); // gap pra imagem
+
+      // 3. IMAGEM 
+      if (mainImg) {
+        const availableHeight = CANVAS_H - currentY - Math.round(8 * S); // padding bottom
+        
+        ctx.save();
+        // border radius image
+        const radius = Math.round(16 * S);
+        ctx.beginPath();
+        ctx.moveTo(startX + radius, currentY);
+        ctx.lineTo(startX + maxWidth - radius, currentY);
+        ctx.quadraticCurveTo(startX + maxWidth, currentY, startX + maxWidth, currentY + radius);
+        ctx.lineTo(startX + maxWidth, currentY + availableHeight - radius);
+        ctx.quadraticCurveTo(startX + maxWidth, currentY + availableHeight, startX + maxWidth - radius, currentY + availableHeight);
+        ctx.lineTo(startX + radius, currentY + availableHeight);
+        ctx.quadraticCurveTo(startX, currentY + availableHeight, startX, currentY + availableHeight - radius);
+        ctx.lineTo(startX, currentY + radius);
+        ctx.quadraticCurveTo(startX, currentY, startX + radius, currentY);
+        ctx.closePath();
+        ctx.clip();
+        
+        // draw object-fit cover na regiao clippada
+        const scale = Math.max(maxWidth / mainImg.width, availableHeight / mainImg.height);
+        const w = mainImg.width * scale;
+        const h = mainImg.height * scale;
+        const dx = startX + (maxWidth - w) / 2;
+        const dy = currentY + (availableHeight - h) / 2;
+        ctx.drawImage(mainImg, dx, dy, w, h);
+        ctx.restore();
+      }
+    }
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Falha gerar blob da imagem'));
+      }, 'image/png', 1.0);
+    });
+  };
+
+  // Download de um slide individual
+  const downloadSlide = async (slide: any, index: number) => {
+    try {
+      const blob = await renderSlideToCanvas(slide);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `slide-${index + 1}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Erro ao baixar slide:', err);
+    }
+  };
+
+  // Download de todas as imagens de uma vez
+  const downloadAllSlides = async () => {
+    setIsDownloadingAll(true);
+    try {
+      for (let i = 0; i < mockSlides.length; i++) {
+        await downloadSlide(mockSlides[i], i);
+        // Delay entre downloads para não sobrecarregar
+        await new Promise(r => setTimeout(r, 300));
+      }
+    } catch (err) {
+      console.error('Erro ao baixar slides:', err);
+    } finally {
+      setIsDownloadingAll(false);
+    }
+  };
 
   const handleRewriteCaption = async () => {
     setIsRewriting(true);
@@ -177,6 +472,14 @@ export default function AssetEditor() {
       setMockSlides(newSlides);
     }
   };
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setTwitterAvatar(url);
+    }
+  };
   const handleGenerateAIImage = async () => {
     const prompt = mockSlides[currentSlide].image_prompt || mockSlides[currentSlide].titulo;
     if (!prompt) return;
@@ -241,29 +544,46 @@ export default function AssetEditor() {
     setSearchResults([]); 
     
     try {
-      // 1. Tradução ultra-precisa via Gemini (sua chave)
+      // 1. Tradução via Gemini
       const translatedQuery = await translateForSearch(searchQuery);
-      
       console.log("Busca real:", searchQuery, "->", translatedQuery);
 
-      // 2. Para "Fotos Reais", o LoremFlickr (Unsplash/Flickr) é o mais confiável sem custos
-      // Vamos gerar 6 variantes usando a query traduzida
-      const finalPhotos: string[] = [];
-      const cleanKeywords = translatedQuery.replace(/[^a-zA-Z0-9, ]/g, '').split(' ').join(',');
+      // 2. Buscar no Pexels (API gratuita com fotos relevantes)
+      const pexelsKey = import.meta.env.VITE_PEXELS_API_KEY;
       
-      const seed = Math.floor(Math.random() * 10000);
-      
-      for(let i=0; i<6; i++) {
-        // Usamos lock diferente para cada um para garantir fotos distintas
-        finalPhotos.push(`https://loremflickr.com/800/800/${encodeURIComponent(cleanKeywords)}?lock=${seed + i}`);
+      if (pexelsKey) {
+        const response = await fetch(
+          `https://api.pexels.com/v1/search?query=${encodeURIComponent(translatedQuery)}&per_page=8&orientation=portrait&size=medium`,
+          { headers: { 'Authorization': pexelsKey } }
+        );
+        const data = await response.json();
+        
+        if (data.photos && data.photos.length > 0) {
+          setSearchResults(data.photos.map((p: any) => p.src.large));
+        } else {
+          // Fallback: buscar o termo original em pt-br
+          const fallbackRes = await fetch(
+            `https://api.pexels.com/v1/search?query=${encodeURIComponent(searchQuery)}&per_page=8&orientation=portrait&size=medium`,
+            { headers: { 'Authorization': pexelsKey } }
+          );
+          const fallbackData = await fallbackRes.json();
+          setSearchResults((fallbackData.photos || []).map((p: any) => p.src.large));
+        }
+      } else {
+        // Sem chave Pexels: usar Unsplash Source (menos preciso mas funcional)
+        const finalPhotos: string[] = [];
+        const cleanQuery = translatedQuery.replace(/[^a-zA-Z0-9 ]/g, '').trim();
+        for (let i = 0; i < 8; i++) {
+          finalPhotos.push(`https://source.unsplash.com/800x1000/?${encodeURIComponent(cleanQuery)}&sig=${Date.now() + i}`);
+        }
+        setSearchResults(finalPhotos);
       }
-
-      setSearchResults(finalPhotos);
     } catch (error) {
       console.error("Erro na busca de fotos:", error);
-      const fallback = [];
-      for(let i=0; i<6; i++) {
-        fallback.push(`https://loremflickr.com/800/800/business?lock=${Date.now() + i}`);
+      // Fallback mínimo
+      const fallback: string[] = [];
+      for (let i = 0; i < 6; i++) {
+        fallback.push(`https://source.unsplash.com/800x1000/?${encodeURIComponent(searchQuery)}&sig=${Date.now() + i}`);
       }
       setSearchResults(fallback);
     } finally {
@@ -277,41 +597,137 @@ export default function AssetEditor() {
     setMockSlides(newSlides);
   };
 
+  // Comprimir imagem para base64 menor (fallback quando Storage falha)
+  const compressImageToBase64 = (imageUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 600; // resolução menor para não estourar o banco
+        const ratio = Math.min(MAX / img.width, MAX / img.height, 1);
+        canvas.width = img.width * ratio;
+        canvas.height = img.height * ratio;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.6)); // JPEG comprimido
+      };
+      img.onerror = () => resolve(imageUrl);
+      img.src = imageUrl;
+    });
+  };
+
+  // Upload de imagem para Supabase Storage (persistência)
+  const uploadImageToStorage = async (imageUrl: string, postId: string, slideIndex: number): Promise<string> => {
+    try {
+      let blob: Blob;
+
+      if (imageUrl.startsWith('data:')) {
+        console.log(`[Upload] Slide ${slideIndex}: Convertendo base64 → blob`);
+        const res = await fetch(imageUrl);
+        blob = await res.blob();
+      } else if (imageUrl.startsWith('blob:')) {
+        console.log(`[Upload] Slide ${slideIndex}: Convertendo blob URL → blob`);
+        const res = await fetch(imageUrl);
+        blob = await res.blob();
+      } else if (imageUrl.startsWith('http')) {
+        console.log(`[Upload] Slide ${slideIndex}: URL externa, mantendo`);
+        return imageUrl;
+      } else {
+        return imageUrl;
+      }
+
+      console.log(`[Upload] Slide ${slideIndex}: Blob criado, ${(blob.size / 1024).toFixed(0)}KB`);
+
+      const fileName = `${user?.id}/${postId}/slide-${slideIndex}-${Date.now()}.png`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('post-images')
+        .upload(fileName, blob, {
+          contentType: blob.type || 'image/png',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.warn(`[Upload] Slide ${slideIndex}: Storage falhou (${uploadError.message}), usando compressão local`);
+        // FALLBACK: comprimir e salvar como base64 no JSON
+        return await compressImageToBase64(imageUrl);
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('post-images')
+        .getPublicUrl(fileName);
+
+      console.log(`[Upload] Slide ${slideIndex}: ✅ Upload OK`);
+      return urlData.publicUrl;
+    } catch (err: any) {
+      console.warn(`[Upload] Slide ${slideIndex}: Exceção (${err.message}), usando compressão`);
+      // FALLBACK: comprimir e retornar como base64
+      return await compressImageToBase64(imageUrl);
+    }
+  };
+
   const handleSavePost = async () => {
+    // Validação obrigatória para formato Twitter
+    if (globalStyle === 'twitter') {
+      if (!twitterName.trim() || !twitterHandle.trim() || !twitterAvatar) {
+        alert("Para o layout Twitter, preencha seu Nome, @arroba e envie uma Foto de Perfil antes de finalizar!");
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
-      const postId = incomingData?.postId;
+      let postId = incomingData?.postId;
       
-      if (postId) {
-        // Atualizar post existente (rascunho iniciado)
-        const { error } = await supabase
+      // Se não tem postId, criar o post primeiro para ter o ID
+      if (!postId) {
+        const { data: newPost, error: createError } = await supabase
           .from('posts')
-          .update({ 
-            content: { slides: mockSlides, caption },
+          .insert([{ 
             title: incomingData?.topic || "Sem título",
-          })
-          .eq('id', postId);
+            content: { slides: [], caption },
+            user_id: user?.id,
+            created_at: new Date().toISOString()
+          }])
+          .select()
+          .single();
         
-        if (error) throw error;
-      } else {
-        // Criar novo post
-        const { error } = await supabase
-          .from('posts')
-          .insert([
-            { 
-              content: { slides: mockSlides, caption },
-              title: incomingData?.topic || "Sem título",
-              created_at: new Date().toISOString()
-            }
-          ]);
-        
-        if (error) throw error;
+        if (createError) throw createError;
+        postId = newPost.id;
       }
+
+      // Fazer upload de TODAS as imagens para Supabase Storage
+      const slidesWithPersistentImages = await Promise.all(
+        mockSlides.map(async (slide: any, idx: number) => {
+          const persistentUrl = await uploadImageToStorage(slide.imagem, postId, idx);
+          return { ...slide, imagem: persistentUrl };
+        })
+      );
+
+      // Atualizar o post com as URLs permanentes
+      const { error: updateError } = await supabase
+        .from('posts')
+        .update({ 
+          content: { 
+            slides: slidesWithPersistentImages, 
+            caption,
+            globalStyle,
+            twitterName,
+            twitterHandle,
+            twitterAvatar
+          },
+          title: incomingData?.topic || "Sem título",
+        })
+        .eq('id', postId);
       
+      if (updateError) throw updateError;
+
+      // Atualizar slides locais com URLs permanentes
+      setMockSlides(slidesWithPersistentImages);
       setIsFinished(true);
     } catch (err) {
       console.error("Save Error:", err);
-      // Fallback para permitir que o usuário veja a tela final mesmo em caso de erro no banco
       setIsFinished(true); 
     } finally {
       setIsSaving(false);
@@ -357,35 +773,53 @@ export default function AssetEditor() {
           </div>
 
           <div className="mb-10 text-left">
-            <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-[0.2em] mb-4">SEUS ATIVOS GERADOS:</h4>
-            <div className="grid grid-cols-4 md:grid-cols-5 gap-3">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-[0.2em]">SEUS ATIVOS GERADOS (4:5 Instagram):</h4>
+              <button
+                onClick={downloadAllSlides}
+                disabled={isDownloadingAll}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-black transition-all shadow-lg shadow-emerald-500/20 active:scale-95 disabled:opacity-50"
+              >
+                {isDownloadingAll ? <RefreshCw className="w-4 h-4 animate-spin" /> : <PackageOpen className="w-4 h-4" />}
+                {isDownloadingAll ? 'Baixando...' : `Baixar Todas (${mockSlides.length})`}
+              </button>
+            </div>
+            <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
               {mockSlides.map((slide, idx) => (
-                <div key={idx} className="group relative aspect-square rounded-xl overflow-hidden border border-white/10">
+                <div key={idx} className="group relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10">
                   <img src={slide.imagem} className="w-full h-full object-cover" alt={`Slide ${idx+1}`} />
-                  <a 
-                    href={slide.imagem} 
-                    download={`slide-${idx+1}.png`}
-                    target="_blank"
-                    rel="noreferrer"
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-2">
+                    <p className="text-white text-[8px] font-bold line-clamp-2">{slide.titulo}</p>
+                  </div>
+                  <button 
+                    onClick={() => downloadSlide(slide, idx)}
                     className="absolute inset-0 bg-indigo-600/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
                   >
                     <Download className="w-5 h-5" />
-                  </a>
+                  </button>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <button 
               onClick={() => setIsFinished(false)}
-              className="py-5 bg-white/5 hover:bg-white/10 text-white font-bold rounded-2xl transition-all border border-white/10 hover:border-white/20"
+              className="py-5 bg-white/5 hover:bg-white/10 text-white font-bold rounded-2xl transition-all border border-white/10 hover:border-white/20 text-sm"
             >
               Continuar Editando
             </button>
             <button 
+              onClick={downloadAllSlides}
+              disabled={isDownloadingAll}
+              className="py-5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl transition-all shadow-xl shadow-emerald-500/20 active:scale-95 flex items-center justify-center gap-2 text-sm disabled:opacity-50"
+            >
+              <Download className="w-5 h-5" />
+              {isDownloadingAll ? 'Baixando...' : 'Baixar Todas'}
+            </button>
+            <button 
               onClick={() => navigate('/')}
-              className="py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl transition-all shadow-xl shadow-indigo-500/20 active:scale-95"
+              className="py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl transition-all shadow-xl shadow-indigo-500/20 active:scale-95 text-sm"
             >
               Finalizar e Sair
             </button>
@@ -444,7 +878,7 @@ export default function AssetEditor() {
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[100px] pointer-events-none"></div>
 
           {/* O Slide em Si */}
-          <div className="relative w-full max-w-[400px] aspect-square md:aspect-[4/5] bg-slate-900 rounded-xl shadow-2xl overflow-hidden border border-white/10 group">
+          <div className="relative w-full max-w-[400px] aspect-[4/5] bg-slate-900 rounded-xl shadow-2xl overflow-hidden border border-white/10 group">
             
             <AnimatePresence mode="wait">
               <motion.div
@@ -453,28 +887,90 @@ export default function AssetEditor() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
-                className="absolute inset-0 bg-cover bg-center"
-                style={{ backgroundImage: `url('${mockSlides[currentSlide].imagem}')` }}
+                className={`absolute inset-0 bg-cover bg-center ${globalStyle === 'twitter' ? 'bg-white' : ''}`}
+                style={{ backgroundImage: globalStyle === 'twitter' ? 'none' : `url('${mockSlides[currentSlide].imagem}')` }}
               >
-                {/* Overlay Escuro para o texto ler bem */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10"></div>
+                {/* Overlay Escuro para os modos Classic e Centered */}
+                {(globalStyle === 'classic' || globalStyle === 'centered') && (
+                  <div className={`absolute inset-0 bg-gradient-to-t ${
+                    globalStyle === 'centered' 
+                      ? 'from-black/90 via-black/60 to-black/90' 
+                      : 'from-black/90 via-black/40 to-black/10'
+                  }`}></div>
+                )}
                 
-                {/* Textos Gerados pela IA */}
-                <div className={`absolute inset-x-8 bottom-12 ${mockSlides[currentSlide].alinhamento || 'text-left'}`}>
+                {/* Textos: MODO CLASSIC */}
+                {globalStyle === 'classic' && (
+                  <div className={`absolute inset-x-8 bottom-12 flex flex-col justify-end ${mockSlides[currentSlide].alinhamento || 'text-left'}`}>
+                    <h3 
+                      className={`text-3xl md:text-3xl font-extrabold leading-tight mb-3 ${currentFont}`}
+                      style={{ color: titleColor }}
+                    >
+                      {mockSlides[currentSlide].titulo}
+                    </h3>
+                    <p 
+                      className="text-sm md:text-sm leading-relaxed"
+                      style={{ color: textColor }}
+                    >
+                      {mockSlides[currentSlide].texto}
+                    </p>
+                  </div>
+                )}
 
-                  <h3 
-                    className={`text-3xl md:text-4xl font-extrabold leading-tight mb-3 ${currentFont}`}
-                    style={{ color: titleColor }}
-                  >
-                    {mockSlides[currentSlide].titulo}
-                  </h3>
-                  <p 
-                    className="text-sm md:text-base leading-relaxed"
-                    style={{ color: textColor }}
-                  >
-                    {mockSlides[currentSlide].texto}
-                  </p>
-                </div>
+                {/* Textos: MODO CENTERED */}
+                {globalStyle === 'centered' && (
+                  <div className={`absolute inset-x-8 inset-y-0 flex flex-col justify-center ${mockSlides[currentSlide].alinhamento || 'text-center'}`}>
+                    <h3 
+                      className={`text-4xl md:text-4xl font-extrabold leading-tight mb-6 drop-shadow-lg ${currentFont}`}
+                      style={{ color: titleColor }}
+                    >
+                      {mockSlides[currentSlide].titulo}
+                    </h3>
+                    <p 
+                      className="text-base md:text-lg leading-relaxed bg-black/30 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10"
+                      style={{ color: textColor }}
+                    >
+                      {mockSlides[currentSlide].texto}
+                    </p>
+                  </div>
+                )}
+
+                {/* Textos: MODO TWITTER */}
+                {globalStyle === 'twitter' && (
+                  <div className="absolute inset-0 flex flex-col p-6 bg-white overflow-hidden text-left">
+                    {/* Header: Avatar, Name e Handle */}
+                    <div className="flex items-center gap-3 mb-4 mt-6 z-10 w-full shrink-0">
+                      {twitterAvatar ? (
+                        <img src={twitterAvatar} alt="Avatar" className="w-12 h-12 rounded-full border border-gray-200 object-cover shrink-0" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full border border-gray-200 bg-gray-100 shrink-0 flex items-center justify-center">
+                          <Camera className="w-4 h-4 text-gray-300" />
+                        </div>
+                      )}
+                      <div className="flex flex-col flex-1 truncate">
+                        <span className="text-gray-900 font-bold text-base leading-tight truncate">{twitterName || 'Seu Nome'}</span>
+                        <span className="text-gray-500 text-sm leading-tight truncate">{twitterHandle}</span>
+                      </div>
+                    </div>
+
+                    {/* Texto Body */}
+                    <div className={`z-10 flex flex-col mb-4 shrink-0 ${mockSlides[currentSlide].alinhamento || 'text-left'}`}>
+                      {mockSlides[currentSlide].titulo && (
+                        <h3 className={`text-xl font-bold text-gray-900 mb-2 leading-tight ${currentFont}`}>
+                          {mockSlides[currentSlide].titulo}
+                        </h3>
+                      )}
+                      <p className="text-gray-800 text-[15px] leading-snug whitespace-pre-wrap">
+                        {mockSlides[currentSlide].texto}
+                      </p>
+                    </div>
+
+                    {/* Imagem */}
+                    <div className="flex-1 rounded-2xl overflow-hidden border border-gray-200 relative mb-2">
+                      <img src={mockSlides[currentSlide].imagem} alt="Post asset" className="absolute inset-0 w-full h-full object-cover" />
+                    </div>
+                  </div>
+                )}
               </motion.div>
             </AnimatePresence>
 
@@ -555,7 +1051,72 @@ export default function AssetEditor() {
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 mb-4">
               <Type className="w-4 h-4 text-blue-400" /> Editar Slide {currentSlide + 1}
             </h3>
-            
+
+            {/* Layouts Globais */}
+            <div className="mb-6 p-4 bg-black/50 rounded-xl border border-white/5 space-y-4">
+              <div>
+                <label className="text-[11px] font-bold text-slate-400 mb-2 block uppercase tracking-wider">Layout do Post</label>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setGlobalStyle('classic')} 
+                    className={`flex-1 py-1.5 text-xs rounded-lg border transition-all ${globalStyle === 'classic' ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}
+                  >
+                    Clássico
+                  </button>
+                  <button 
+                    onClick={() => setGlobalStyle('centered')} 
+                    className={`flex-1 py-1.5 text-xs rounded-lg border transition-all ${globalStyle === 'centered' ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}
+                  >
+                    No Centro
+                  </button>
+                  <button 
+                    onClick={() => setGlobalStyle('twitter')} 
+                    className={`flex-1 py-1.5 text-xs rounded-lg border transition-all ${globalStyle === 'twitter' ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}
+                  >
+                    Twitter
+                  </button>
+                </div>
+              </div>
+
+              {globalStyle === 'twitter' && (
+                <div className="space-y-3 pt-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-indigo-400 mb-1 block">Nome do Perfil</label>
+                      <input 
+                        type="text" 
+                        value={twitterName} 
+                        onChange={(e) => setTwitterName(e.target.value)} 
+                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:border-indigo-500 outline-none" 
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-indigo-400 mb-1 block">@arroba</label>
+                      <input 
+                        type="text" 
+                        value={twitterHandle} 
+                        onChange={(e) => setTwitterHandle(e.target.value)} 
+                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:border-indigo-500 outline-none" 
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-indigo-400 mb-1 block">Foto do Perfil</label>
+                    <label className="cursor-pointer flex items-center justify-center gap-2 bg-black/40 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-xs transition-all w-full">
+                      <Camera className="w-3 h-3" />
+                      <span className="truncate">{twitterAvatar ? 'Foto adicionada (clique p/ mudar)' : 'Fazer Upload...'}</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleAvatarUpload}
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>

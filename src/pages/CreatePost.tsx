@@ -5,8 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 import { researchTopic } from '../lib/ai/research';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function CreatePost() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [topic, setTopic] = useState(searchParams.get('topic') || '');
@@ -44,6 +46,7 @@ export default function CreatePost() {
               slides: result.generatedData.slides, 
               caption: result.generatedData.legenda_instagram_facebook 
             },
+            user_id: user?.id,
             created_at: new Date().toISOString()
           }
         ])
@@ -131,14 +134,25 @@ export default function CreatePost() {
                 <div className="relative bg-[#121214] border border-white/10 rounded-[2rem] overflow-hidden shadow-2xl transition-all group-hover:border-white/20">
                   
                   {/* Linha 1: Input de Texto */}
-                  <div className="flex items-center p-2 pt-4 px-6">
-                    <Search className="w-6 h-6 text-slate-500 hidden md:block" />
-                    <input
-                      type="text"
+                  <div className="flex items-start p-2 pt-4 px-6">
+                    <Search className="w-6 h-6 text-slate-500 hidden md:block mt-4" />
+                    <textarea
                       value={topic}
                       onChange={(e) => setTopic(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          if (topic.trim()) handleSearch(e as any);
+                        }
+                      }}
+                      onInput={(e) => {
+                        const el = e.target as HTMLTextAreaElement;
+                        el.style.height = 'auto';
+                        el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+                      }}
                       placeholder="Sobre o que vamos criar hoje?"
-                      className="w-full bg-transparent border-none text-white px-4 py-6 focus:outline-none focus:ring-0 text-xl md:text-2xl placeholder:text-slate-700 font-medium"
+                      className="w-full bg-transparent border-none text-white px-4 py-4 focus:outline-none focus:ring-0 text-xl md:text-2xl placeholder:text-slate-700 font-medium resize-none overflow-hidden"
+                      rows={1}
                       autoFocus
                     />
                   </div>

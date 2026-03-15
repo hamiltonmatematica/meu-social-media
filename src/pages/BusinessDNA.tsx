@@ -4,8 +4,10 @@ import { Sparkles, ArrowLeft, Target, Fingerprint, Users, MessageCircle, Clock, 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function BusinessDNA() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const profileId = searchParams.get('profile');
@@ -29,7 +31,7 @@ export default function BusinessDNA() {
   const fetchProfilePosts = async () => {
     setLoading(true);
     // Simulação de busca por perfil - No futuro filtraria por profile_id
-    const { data } = await supabase.from('posts').select('*').limit(10);
+    const { data } = await supabase.from('posts').select('*').eq('user_id', user?.id).limit(10);
     setPosts(data || []);
     setLoading(false);
   };
