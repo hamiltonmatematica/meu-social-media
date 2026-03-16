@@ -1,3 +1,46 @@
+// Fallback: Gera imagem via DALL-E 3 (OpenAI) quando Gemini estiver indisponível
+async function generateWithDalle(prompt: string): Promise<string | null> {
+  try {
+    const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    if (!openaiKey) {
+      console.warn("Chave OpenAI não configurada para fallback DALL-E.");
+      return null;
+    }
+
+    console.log("⚡ Fallback: Gerando imagem via DALL-E 3...");
+
+    const response = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openaiKey}`,
+      },
+      body: JSON.stringify({
+        model: "dall-e-3",
+        prompt: `Professional photography for business social media, clean and high resolution, stock photo style, high quality: ${prompt}`,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard",
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Erro DALL-E:", errorData);
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.data?.[0]?.url) {
+      return data.data[0].url;
+    }
+    return null;
+  } catch (error) {
+    console.error("Erro fatal DALL-E:", error);
+    return null;
+  }
+}
+
 export async function generateSlideImage(prompt: string) {
   try {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -26,8 +69,17 @@ export async function generateSlideImage(prompt: string) {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("Erro API Gemini:", errorData);
-      return { error: errorData.error?.message || "Erro na geração do Google" };
+      const errorMsg = errorData.error?.message || "";
+      console.error("Erro API Gemini:", errorMsg);
+
+      // Se for erro de cota/limite, tenta DALL-E automaticamente
+      if (errorMsg.includes("quota") || errorMsg.includes("Quota") || errorMsg.includes("429") || errorMsg.includes("exceeded")) {
+        console.log("🔄 Cota Gemini excedida. Ativando fallback DALL-E...");
+        const dalleResult = await generateWithDalle(prompt);
+        if (dalleResult) return dalleResult;
+      }
+
+      return { error: `Erro do Google: ${errorMsg}` };
     }
 
     const data = await response.json();
@@ -41,6 +93,9 @@ export async function generateSlideImage(prompt: string) {
     return null;
   } catch (error) {
     console.error("Erro fatal Gemini Imagen:", error);
+    // Fallback final: tenta DALL-E em caso de erro de rede etc.
+    const dalleResult = await generateWithDalle(prompt);
+    if (dalleResult) return dalleResult;
     return null;
   }
 }
