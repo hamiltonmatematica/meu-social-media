@@ -88,7 +88,8 @@ export default function Dashboard() {
           globalStyle: post.content.globalStyle,
           twitterName: post.content.twitterName,
           twitterHandle: post.content.twitterHandle,
-          twitterAvatar: post.content.twitterAvatar
+          twitterAvatar: post.content.twitterAvatar,
+          sources: post.content.sources || []
         } 
       } 
     });

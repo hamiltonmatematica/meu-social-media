@@ -874,7 +874,8 @@ export default function AssetEditor() {
             globalStyle,
             twitterName,
             twitterHandle,
-            twitterAvatar
+            twitterAvatar,
+            sources: incomingData?.sources || []
           },
           title: incomingData?.topic || "Sem título",
         })
