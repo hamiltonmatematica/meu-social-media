@@ -26,7 +26,8 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [stats, setStats] = useState({ totalUsers: 0, activeToday: 0, totalPosts: 0 });
+  const [stats, setStats] = useState({ totalUsers: 0, activeToday: 0, totalPosts: 0, totalCredits: 0 });
+  const [financeStats, setFinanceStats] = useState({ revenue: 0, sales: 0, transactions: [] as any[] });
   const [editingCredits, setEditingCredits] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<'users' | 'finance'>('users');
 
@@ -79,13 +80,70 @@ export default function Admin() {
         .from('posts')
         .select('*', { count: 'exact', head: true });
 
+      // Calculate total credits in circulation
+      const { data: usersData } = await supabase
+        .from('sm_users')
+        .select('credits');
+      let totalCredits = 0;
+      if (usersData) {
+        totalCredits = usersData.reduce((acc, user) => acc + (user.credits || 0), 0);
+      }
+
       setStats({
         totalUsers: totalUsers || 0,
         activeToday: activeToday || 0,
         totalPosts: totalPosts || 0,
+        totalCredits: totalCredits,
       });
+
+      fetchFinanceStats();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const fetchFinanceStats = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('sm_transactions')
+        .select(`
+          id,
+          amount,
+          created_at,
+          status,
+          plan_name,
+          user:sm_users(email)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (error) {
+        if (error.code === '42P01') {
+          console.error("Tabela sm_transactions não existe ainda. Execute o SQL.");
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      const allTx = await supabase.from('sm_transactions').select('amount').eq('status', 'completed');
+      
+      let totalRevenue = 0;
+      let totalSales = 0;
+      
+      if (allTx.data) {
+        totalRevenue = allTx.data.reduce((acc, tx) => acc + Number(tx.amount || 0), 0);
+        totalSales = allTx.data.length;
+      }
+
+      setFinanceStats({
+        revenue: totalRevenue,
+        sales: totalSales,
+        transactions: data || []
+      });
+      
+    } catch (err) {
+      console.error("Erro ao buscar dados financeiros:", err);
     }
   };
 
@@ -404,9 +462,9 @@ export default function Admin() {
                   <Wallet className="w-5 h-5 text-emerald-400" />
                   <span className="text-xs font-bold text-slate-400 uppercase">Receita Total</span>
                 </div>
-                <p className="text-4xl font-black text-white">R$ 14.590<span className="text-xl text-slate-500 font-bold">,00</span></p>
+                <p className="text-4xl font-black text-white">{financeStats.revenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                 <div className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-400">
-                  <TrendingUp className="w-4 h-4" /> +12% este mês
+                  <TrendingUp className="w-4 h-4" /> Desde o início
                 </div>
               </div>
 
@@ -416,9 +474,9 @@ export default function Admin() {
                   <CreditCard className="w-5 h-5 text-indigo-400" />
                   <span className="text-xs font-bold text-slate-400 uppercase">Vendas Realizadas</span>
                 </div>
-                <p className="text-4xl font-black text-white">245</p>
-                <div className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-400">
-                  <TrendingUp className="w-4 h-4" /> +5% este mês
+                <p className="text-4xl font-black text-white">{financeStats.sales}</p>
+                <div className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-400">
+                  Total acumulado
                 </div>
               </div>
 
@@ -428,7 +486,11 @@ export default function Admin() {
                   <LayoutDashboard className="w-5 h-5 text-orange-400" />
                   <span className="text-xs font-bold text-slate-400 uppercase">Tíquete Médio</span>
                 </div>
-                <p className="text-4xl font-black text-white">R$ 59<span className="text-xl text-slate-500 font-bold">,55</span></p>
+                <p className="text-4xl font-black text-white">
+                  {financeStats.sales > 0 
+                    ? (financeStats.revenue / financeStats.sales).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                    : 'R$ 0,00'}
+                </p>
               </div>
 
               <div className="bg-gradient-to-br from-purple-900/40 to-slate-900 border border-purple-500/20 rounded-2xl p-6 relative overflow-hidden">
@@ -437,7 +499,7 @@ export default function Admin() {
                   <BarChart3 className="w-5 h-5 text-purple-400" />
                   <span className="text-xs font-bold text-slate-400 uppercase">Créditos Ativos</span>
                 </div>
-                <p className="text-4xl font-black text-white">4.890</p>
+                <p className="text-4xl font-black text-white">{stats.totalCredits}</p>
                 <div className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-400">
                   Em circulação
                 </div>
@@ -450,36 +512,35 @@ export default function Admin() {
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <Activity className="w-5 h-5 text-indigo-400" /> Transações Recentes
                   </h3>
-                  <p className="text-sm text-slate-500">Últimas compras de créditos (Simulado)</p>
+                  <p className="text-sm text-slate-500">Últimas 10 compras globais</p>
                 </div>
                 <button className="text-indigo-400 text-sm font-bold hover:text-indigo-300 transition-colors">Ver todas</button>
               </div>
               
               <div className="space-y-3">
-                {[
-                  { id: '1',  user: 'joao.silva@email.com', plan: 'Pacote 30 Posts', amount: '119,70', date: 'Hoje, 10:23', status: 'Concluído' },
-                  { id: '2',  user: 'maria.souza@email.com', plan: 'Pacote 15 Posts', amount: '69,90', date: 'Hoje, 09:15', status: 'Concluído' },
-                  { id: '3',  user: 'empresa.x@email.com', plan: 'Pacote 20 Posts', amount: '89,90', date: 'Ontem, 16:45', status: 'Concluído' },
-                  { id: '4',  user: 'carlos.dev@email.com', plan: 'Pacote 10 Posts', amount: '49,90', date: 'Ontem, 14:20', status: 'Pendente' },
-                ].map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                        <DollarSign className="w-5 h-5 text-emerald-400" />
+                {financeStats.transactions.length === 0 ? (
+                  <p className="text-slate-500 text-sm text-center py-4">Nenhuma transação encontrada ou tabela inexistente.</p>
+                ) : (
+                  financeStats.transactions.map((tx) => (
+                    <div key={tx.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                          <DollarSign className="w-5 h-5 text-emerald-400" />
+                        </div>
+                        <div>
+                          <p className="text-white font-bold text-sm">{(tx.user as any)?.email || 'Desconhecido'}</p>
+                          <p className="text-slate-500 text-xs">{tx.plan_name} • {new Date(tx.created_at).toLocaleString('pt-BR')}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-white font-bold text-sm">{tx.user}</p>
-                        <p className="text-slate-500 text-xs">{tx.plan} • {tx.date}</p>
+                      <div className="text-right flex items-center gap-6">
+                        <div>
+                          <p className="text-white font-black">R$ {Number(tx.amount).toFixed(2).replace('.', ',')}</p>
+                          <p className={`text-[10px] font-bold uppercase ${tx.status === 'completed' ? 'text-emerald-500' : 'text-orange-500'}`}>{tx.status}</p>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right flex items-center gap-6">
-                      <div>
-                        <p className="text-white font-black">R$ {tx.amount}</p>
-                        <p className={`text-[10px] font-bold uppercase ${tx.status === 'Concluído' ? 'text-emerald-500' : 'text-orange-500'}`}>{tx.status}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
             
