@@ -7,6 +7,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   userCredits: number;
+  userRole: string;
   fetchCredits: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
@@ -21,12 +22,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [userCredits, setUserCredits] = useState<number>(0);
+  const [userRole, setUserRole] = useState<string>('user');
 
   const fetchCredits = async () => {
     if (!user) return;
-    const { data } = await supabase.from('sm_users').select('credits').eq('id', user.id).single();
+    const { data } = await supabase.from('sm_users').select('credits, role').eq('id', user.id).single();
     if (data) {
       setUserCredits(data.credits || 0);
+      setUserRole(data.role || 'user');
     }
   };
 
@@ -124,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, userCredits, fetchCredits, signIn, signUp, signOut, sendPasswordReset }}>
+    <AuthContext.Provider value={{ user, session, loading, userCredits, userRole, fetchCredits, signIn, signUp, signOut, sendPasswordReset }}>
       {children}
     </AuthContext.Provider>
   );

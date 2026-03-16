@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Shield, Users, Search, Trash2, UserCheck, UserX, ArrowLeft, RefreshCw, BarChart3, Mail, Calendar, Activity } from 'lucide-react';
+import { Shield, Users, Search, Trash2, UserCheck, UserX, ArrowLeft, RefreshCw, BarChart3, Mail, Calendar, Activity, DollarSign, TrendingUp, CreditCard, Wallet, LayoutDashboard } from 'lucide-react';
 
 interface UserProfile {
   id: string;
   email: string;
   name: string;
   plan: string;
+  role: string;
+  credits: number;
   created_at: string;
   last_login_at: string;
   total_posts_generated: number;
@@ -18,20 +20,24 @@ interface UserProfile {
 }
 
 export default function Admin() {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [stats, setStats] = useState({ totalUsers: 0, activeToday: 0, totalPosts: 0 });
+  const [editingCredits, setEditingCredits] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState<'users' | 'finance'>('users');
 
-  // Lista de emails admin (configure com o seu email)
+
+  // Lista de emails admin fallback
   const ADMIN_EMAILS = [
-    import.meta.env.VITE_ADMIN_EMAIL || 'admin@socialflow.ai'
+    import.meta.env.VITE_ADMIN_EMAIL || 'admin@socialflow.ai',
+    'hamilton.vinicius@gmail.com'
   ];
 
-  const isAdmin = user && ADMIN_EMAILS.includes(user.email || '');
+  const isAdmin = user && (ADMIN_EMAILS.includes(user.email || '') || userRole === 'admin');
 
   useEffect(() => {
     if (isAdmin) {
@@ -103,15 +109,25 @@ export default function Admin() {
     }
   };
 
-  const handleUpdatePlan = async (userId: string, newPlan: string) => {
+  const handleUpdateRoleAndCredits = async (userId: string, newRole: string, newCredits: number, newPlan: string) => {
     try {
-      await supabase.from('sm_users').update({ plan: newPlan }).eq('id', userId);
-      setUsers(users.map(u => u.id === userId ? { ...u, plan: newPlan } : u));
+      const { error } = await supabase.rpc('admin_update_user', {
+        target_user_id: userId,
+        new_role: newRole,
+        new_credits: newCredits,
+        new_plan: newPlan
+      });
+      
+      if (error) throw error;
+
+      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole, credits: newCredits, plan: newPlan } : u));
       if (selectedUser?.id === userId) {
-        setSelectedUser({ ...selectedUser, plan: newPlan });
+        setSelectedUser({ ...selectedUser, role: newRole, credits: newCredits, plan: newPlan });
       }
-    } catch (err) {
+      alert('Usuário atualizado com sucesso!');
+    } catch (err: any) {
       console.error(err);
+      alert('Erro ao atualizar usuário: ' + err.message);
     }
   };
 
@@ -154,15 +170,33 @@ export default function Admin() {
             </div>
           </div>
         </div>
-        <button onClick={fetchUsers} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Atualizar
-        </button>
+        <div className="flex items-center gap-4">
+          <div className="flex bg-white/5 rounded-xl p-1">
+            <button 
+              onClick={() => setActiveTab('users')}
+              className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'users' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            >
+              <Users className="w-4 h-4" /> Usuários
+            </button>
+            <button 
+              onClick={() => setActiveTab('finance')}
+              className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'finance' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+            >
+              <DollarSign className="w-4 h-4" /> Financeiro
+            </button>
+          </div>
+          <button onClick={fetchUsers} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors h-10">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </button>
+        </div>
       </header>
 
       <main className="max-w-7xl mx-auto p-6 space-y-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {activeTab === 'users' ? (
+          <>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900 border border-indigo-500/20 rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-2">
               <Users className="w-5 h-5 text-indigo-400" />
@@ -212,7 +246,10 @@ export default function Admin() {
                 filteredUsers.map(u => (
                   <div 
                     key={u.id} 
-                    onClick={() => setSelectedUser(u)}
+                    onClick={() => {
+                      setSelectedUser(u);
+                      setEditingCredits(u.credits || 0);
+                    }}
                     className={`bg-slate-900 border rounded-xl p-4 cursor-pointer transition-all hover:border-indigo-500/40 ${
                       selectedUser?.id === u.id ? 'border-indigo-500/60 bg-indigo-500/5' : 'border-white/5'
                     }`}
@@ -229,11 +266,10 @@ export default function Admin() {
                       </div>
                       <div className="flex items-center gap-3">
                         <span className={`text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border ${
-                          u.plan === 'pro' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                          u.plan === 'business' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
+                          u.role === 'admin' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
                           'bg-slate-800 text-slate-400 border-white/5'
                         }`}>
-                          {u.plan || 'free'}
+                          {u.role || 'user'}
                         </span>
                         {u.last_login_at && (
                           <span className="text-[10px] text-slate-600">
@@ -301,32 +337,54 @@ export default function Admin() {
                   </div>
                 </div>
 
-                {/* Ações */}
-                <div className="border-t border-white/5 pt-4 space-y-3">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Plano</h4>
-                  <div className="flex gap-2">
-                    {['free', 'pro', 'business'].map(plan => (
-                      <button
-                        key={plan}
-                        onClick={() => handleUpdatePlan(selectedUser.id, plan)}
-                        className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all uppercase ${
-                          selectedUser.plan === plan
-                            ? 'bg-indigo-500 border-indigo-500 text-white'
-                            : 'bg-black/30 border-white/10 text-slate-500 hover:text-white'
-                        }`}
+                {/* Ações Avançadas */}
+                <div className="border-t border-white/5 pt-4 space-y-4">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Acesso e Cargos</h4>
+                    <div className="flex gap-2">
+                      {['user', 'admin'].map(role => (
+                        <button
+                          key={role}
+                          onClick={() => handleUpdateRoleAndCredits(selectedUser.id, role, editingCredits, selectedUser.plan)}
+                          className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all uppercase ${
+                            selectedUser.role === role
+                              ? (role === 'admin' ? 'bg-red-500 border-red-500 text-white' : 'bg-indigo-500 border-indigo-500 text-white')
+                              : 'bg-black/30 border-white/10 text-slate-500 hover:text-white'
+                          }`}
+                        >
+                          {role}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Créditos de Post</h4>
+                    <div className="flex gap-2">
+                      <input 
+                        type="number" 
+                        value={editingCredits}
+                        onChange={(e) => setEditingCredits(Number(e.target.value))}
+                        className="bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white w-full text-center font-bold"
+                      />
+                      <button 
+                        onClick={() => handleUpdateRoleAndCredits(selectedUser.id, selectedUser.role || 'user', editingCredits, selectedUser.plan)}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-bold transition-all whitespace-nowrap"
                       >
-                        {plan}
+                        Salvar
                       </button>
-                    ))}
+                    </div>
                   </div>
                 </div>
 
-                <button 
-                  onClick={() => handleDeleteUser(selectedUser.id)}
-                  className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" /> Excluir Usuário
-                </button>
+                <div className="pt-2">
+                  <button 
+                    onClick={() => handleDeleteUser(selectedUser.id)}
+                    className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" /> Excluir Usuário
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="bg-slate-900/30 border border-dashed border-white/10 rounded-2xl p-12 text-center">
@@ -336,7 +394,116 @@ export default function Admin() {
             )}
           </div>
         </div>
+          </>
+        ) : (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-gradient-to-br from-emerald-900/40 to-slate-900 border border-emerald-500/20 rounded-2xl p-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-10 -mt-10" />
+                <div className="flex items-center gap-3 mb-2">
+                  <Wallet className="w-5 h-5 text-emerald-400" />
+                  <span className="text-xs font-bold text-slate-400 uppercase">Receita Total</span>
+                </div>
+                <p className="text-4xl font-black text-white">R$ 14.590<span className="text-xl text-slate-500 font-bold">,00</span></p>
+                <div className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-400">
+                  <TrendingUp className="w-4 h-4" /> +12% este mês
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900 border border-indigo-500/20 rounded-2xl p-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl -mr-10 -mt-10" />
+                <div className="flex items-center gap-3 mb-2">
+                  <CreditCard className="w-5 h-5 text-indigo-400" />
+                  <span className="text-xs font-bold text-slate-400 uppercase">Vendas Realizadas</span>
+                </div>
+                <p className="text-4xl font-black text-white">245</p>
+                <div className="mt-4 flex items-center gap-2 text-xs font-bold text-emerald-400">
+                  <TrendingUp className="w-4 h-4" /> +5% este mês
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-orange-900/40 to-slate-900 border border-orange-500/20 rounded-2xl p-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl -mr-10 -mt-10" />
+                <div className="flex items-center gap-3 mb-2">
+                  <LayoutDashboard className="w-5 h-5 text-orange-400" />
+                  <span className="text-xs font-bold text-slate-400 uppercase">Tíquete Médio</span>
+                </div>
+                <p className="text-4xl font-black text-white">R$ 59<span className="text-xl text-slate-500 font-bold">,55</span></p>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-900/40 to-slate-900 border border-purple-500/20 rounded-2xl p-6 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -mr-10 -mt-10" />
+                <div className="flex items-center gap-3 mb-2">
+                  <BarChart3 className="w-5 h-5 text-purple-400" />
+                  <span className="text-xs font-bold text-slate-400 uppercase">Créditos Ativos</span>
+                </div>
+                <p className="text-4xl font-black text-white">4.890</p>
+                <div className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-400">
+                  Em circulação
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-white/10 rounded-2xl p-6">
+              <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-indigo-400" /> Transações Recentes
+                  </h3>
+                  <p className="text-sm text-slate-500">Últimas compras de créditos (Simulado)</p>
+                </div>
+                <button className="text-indigo-400 text-sm font-bold hover:text-indigo-300 transition-colors">Ver todas</button>
+              </div>
+              
+              <div className="space-y-3">
+                {[
+                  { id: '1',  user: 'joao.silva@email.com', plan: 'Pacote 30 Posts', amount: '119,70', date: 'Hoje, 10:23', status: 'Concluído' },
+                  { id: '2',  user: 'maria.souza@email.com', plan: 'Pacote 15 Posts', amount: '69,90', date: 'Hoje, 09:15', status: 'Concluído' },
+                  { id: '3',  user: 'empresa.x@email.com', plan: 'Pacote 20 Posts', amount: '89,90', date: 'Ontem, 16:45', status: 'Concluído' },
+                  { id: '4',  user: 'carlos.dev@email.com', plan: 'Pacote 10 Posts', amount: '49,90', date: 'Ontem, 14:20', status: 'Pendente' },
+                ].map((tx) => (
+                  <div key={tx.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <div>
+                        <p className="text-white font-bold text-sm">{tx.user}</p>
+                        <p className="text-slate-500 text-xs">{tx.plan} • {tx.date}</p>
+                      </div>
+                    </div>
+                    <div className="text-right flex items-center gap-6">
+                      <div>
+                        <p className="text-white font-black">R$ {tx.amount}</p>
+                        <p className={`text-[10px] font-bold uppercase ${tx.status === 'Concluído' ? 'text-emerald-500' : 'text-orange-500'}`}>{tx.status}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Bloco de Gestão Financeira Auxiliar */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-slate-900 border border-white/10 rounded-2xl p-6">
+                <h4 className="text-sm font-bold text-white mb-4">Adicionar Crédito Manual</h4>
+                <p className="text-xs text-slate-500 mb-6">Esta função já pode ser usada pelo painel lateral de cada usuário, navegando na aba 'Usuários'.</p>
+                <button onClick={() => setActiveTab('users')} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all text-sm">
+                  Ir para Gestão de Usuários
+                </button>
+              </div>
+              <div className="bg-slate-900 border border-white/10 rounded-2xl p-6">
+                <h4 className="text-sm font-bold text-white mb-4">Exportar Relatórios</h4>
+                <p className="text-xs text-slate-500 mb-6">Baixe planilhas CSV com os dados de fechamento financeiro do mês (Em breve).</p>
+                <button className="w-full py-3 bg-white/5 border border-white/10 text-slate-400 hover:text-white rounded-xl font-bold transition-all text-sm" disabled>
+                  Exportar CSV Mensal
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
+
     </div>
   );
 }
