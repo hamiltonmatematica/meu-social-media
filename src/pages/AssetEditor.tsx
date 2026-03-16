@@ -125,18 +125,36 @@ export default function AssetEditor() {
   };
 
   // Carrega a imagem com Promise para controlar o async drawing
-  const loadCanvasImage = (url: string): Promise<HTMLImageElement | null> => {
-    return new Promise((resolve) => {
-      if (!url) { resolve(null); return; }
-      const img = new Image();
-      // Não setar crossOrigin em blob: URLs - causa erro de CORS
-      if (!url.startsWith('blob:')) {
-        img.crossOrigin = 'anonymous';
+  // Converte URLs externas em blob para evitar CORS/tainted canvas na exportação
+  const loadCanvasImage = async (url: string): Promise<HTMLImageElement | null> => {
+    if (!url) return null;
+    
+    try {
+      let imgSrc = url;
+      
+      // Se for URL externa (não blob nem data:), converte pra blob pra evitar CORS
+      if (!url.startsWith('blob:') && !url.startsWith('data:')) {
+        try {
+          const resp = await fetch(url, { mode: 'cors' });
+          const blob = await resp.blob();
+          imgSrc = URL.createObjectURL(blob);
+        } catch {
+          imgSrc = url;
+        }
       }
-      img.onload = () => resolve(img);
-      img.onerror = () => resolve(null);
-      img.src = url;
-    });
+      
+      return new Promise((resolve) => {
+        const img = new Image();
+        if (imgSrc === url && !url.startsWith('blob:') && !url.startsWith('data:')) {
+          img.crossOrigin = 'anonymous';
+        }
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = imgSrc;
+      });
+    } catch {
+      return null;
+    }
   };
 
   // Renderiza um slide num Canvas nativo para download (1080x1350) 
