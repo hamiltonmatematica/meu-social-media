@@ -127,8 +127,12 @@ export default function AssetEditor() {
   // Carrega a imagem com Promise para controlar o async drawing
   const loadCanvasImage = (url: string): Promise<HTMLImageElement | null> => {
     return new Promise((resolve) => {
+      if (!url) { resolve(null); return; }
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      // Não setar crossOrigin em blob: URLs - causa erro de CORS
+      if (!url.startsWith('blob:')) {
+        img.crossOrigin = 'anonymous';
+      }
       img.onload = () => resolve(img);
       img.onerror = () => resolve(null);
       img.src = url;
@@ -547,6 +551,9 @@ export default function AssetEditor() {
     if (file) {
       const url = await processImageFile(file);
       if (url) {
+        setCrop({ x: 0, y: 0 });
+        setZoom(1);
+        setCroppedAreaPixels(null);
         setImageToCrop(url);
         setCropType('main');
         setCropModalOpen(true);
@@ -560,6 +567,9 @@ export default function AssetEditor() {
     if (file) {
       const url = await processImageFile(file);
       if (url) {
+        setCrop({ x: 0, y: 0 });
+        setZoom(1);
+        setCroppedAreaPixels(null);
         setImageToCrop(url);
         setCropType('avatar');
         setCropModalOpen(true);
