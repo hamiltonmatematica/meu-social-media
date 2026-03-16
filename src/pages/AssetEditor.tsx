@@ -1,8 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Sparkles, ArrowLeft, Download, Copy, Check, ChevronLeft, ChevronRight, Image as ImageIcon, Type, AlignLeft, AlignCenter, AlignRight, RefreshCw, MessageSquare, Wand2, Search, Camera, Home, Palette, PackageOpen } from 'lucide-react';
+import { Sparkles, ArrowLeft, Download, Copy, Check, ChevronLeft, ChevronRight, Image as ImageIcon, Type, AlignLeft, AlignCenter, AlignRight, RefreshCw, MessageSquare, Wand2, Search, Camera, Home, Palette, PackageOpen, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Cropper, { Point, Area } from 'react-easy-crop';
+import heic2any from 'heic2any';
 import { generateSlideImage, translateForSearch } from '../lib/ai/images';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -67,6 +68,7 @@ export default function AssetEditor() {
   // Crop & Past Avatars State
   const [pastAvatars, setPastAvatars] = useState<string[]>([]);
   const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropType, setCropType] = useState<'avatar' | 'main' | null>(null);
   const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -283,23 +285,33 @@ export default function AssetEditor() {
       ctx.textAlign = align as CanvasTextAlign;
       
       if (slide.titulo && slide.titulo.trim() !== '') {
-        const twTitleFont = Math.round(20 * S);
-        const twTitleLh = Math.round(twTitleFont * 1.3);
+        const twTitleFont = Math.round(15 * S);
+        const twTitleLh = Math.round(twTitleFont * 1.5);
         ctx.fillStyle = '#111827';
-        ctx.font = `bold ${twTitleFont}px Inter, sans-serif`;
+        
+        let canvasFontFamily = 'Inter, sans-serif';
+        if (currentFont === 'font-serif') canvasFontFamily = 'Playfair, serif';
+        else if (currentFont === 'font-mono') canvasFontFamily = 'JetBrains Mono, monospace';
+
+        ctx.font = `400 ${twTitleFont}px ${canvasFontFamily}`;
         const tLines = wrapText(ctx, (slide.titulo || ''), maxWidth);
         tLines.forEach(line => {
           ctx.fillText(line, textX, currentY + twTitleFont); // offset basílico
           currentY += twTitleLh;
         });
-        currentY += Math.round(12 * S); // gap para o texto
+        currentY += Math.round(4 * S); // gap sutil para o texto
       }
 
       // text main
       const twBodyFont = Math.round(15 * S);
       const twBodyLh = Math.round(twBodyFont * 1.5);
       ctx.fillStyle = '#1f2937';
-      ctx.font = `400 ${twBodyFont}px Inter, sans-serif`;
+      // Mapear currentFont para font-family real do canvas
+      let canvasFontFamily = 'Inter, sans-serif';
+      if (currentFont === 'font-serif') canvasFontFamily = 'Playfair, serif';
+      else if (currentFont === 'font-mono') canvasFontFamily = 'JetBrains Mono, monospace';
+
+      ctx.font = `400 ${twBodyFont}px ${canvasFontFamily}`;
       const bLines = wrapText(ctx, (slide.texto || ''), maxWidth);
       bLines.forEach(line => {
          if (line) ctx.fillText(line, textX, currentY + twBodyFont);
@@ -494,22 +506,65 @@ export default function AssetEditor() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      const newSlides = [...mockSlides];
-      newSlides[currentSlide] = { ...newSlides[currentSlide], imagem: url };
-      setMockSlides(newSlides);
+  const handleAddSlide = () => {
+    const newSlide = {
+      ordem: mockSlides.length + 1,
+      titulo: "",
+      texto: "",
+      imagem: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80",
+      alinhamento: "text-center",
+      ai_generated: false
+    };
+    setMockSlides([...mockSlides, newSlide]);
+    setCurrentSlide(mockSlides.length); // Vai par o slide recém criado
+  };
+
+  const handleRemoveSlide = (e: React.MouseEvent, indexToRemove: number) => {
+    e.stopPropagation();
+    if (mockSlides.length <= 1) return; // Proteção se tentar deletar o último
+    const newSlides = mockSlides.filter((_, idx) => idx !== indexToRemove);
+    setMockSlides(newSlides);
+    if (currentSlide >= indexToRemove && currentSlide > 0) {
+      setCurrentSlide(currentSlide - 1);
     }
   };
 
-  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const processImageFile = async (file: File): Promise<string | null> => {
+    try {
+      if (file.type === 'image/heic' || file.name.toLowerCase().endsWith('.heic')) {
+        const convertedBlob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.8 });
+        return URL.createObjectURL(Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob);
+      }
+      return URL.createObjectURL(file);
+    } catch (error) {
+      console.error("Erro ao converter HEIC:", error);
+      return null;
+    }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setImageToCrop(url);
-      setCropModalOpen(true);
+      const url = await processImageFile(file);
+      if (url) {
+        setImageToCrop(url);
+        setCropType('main');
+        setCropModalOpen(true);
+      }
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = await processImageFile(file);
+      if (url) {
+        setImageToCrop(url);
+        setCropType('avatar');
+        setCropModalOpen(true);
+      }
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -544,7 +599,13 @@ export default function AssetEditor() {
     if (imageToCrop && croppedAreaPixels) {
       const croppedUrl = await getCroppedImg(imageToCrop, croppedAreaPixels);
       if (croppedUrl) {
-        setTwitterAvatar(croppedUrl);
+        if (cropType === 'avatar') {
+          setTwitterAvatar(croppedUrl);
+        } else if (cropType === 'main') {
+          const newSlides = [...mockSlides];
+          newSlides[currentSlide] = { ...newSlides[currentSlide], imagem: croppedUrl };
+          setMockSlides(newSlides);
+        }
         setCropModalOpen(false);
       }
     }
@@ -661,9 +722,9 @@ export default function AssetEditor() {
   };
 
   const selectPhoto = (url: string) => {
-    const newSlides = [...mockSlides];
-    newSlides[currentSlide] = { ...newSlides[currentSlide], imagem: url };
-    setMockSlides(newSlides);
+    setImageToCrop(url);
+    setCropType('main');
+    setCropModalOpen(true);
   };
 
   // Comprimir imagem para base64 menor (fallback quando Storage falha)
@@ -1025,19 +1086,21 @@ export default function AssetEditor() {
                     {/* Texto Body */}
                     <div className={`z-10 flex flex-col mb-4 shrink-0 ${mockSlides[currentSlide].alinhamento || 'text-left'}`}>
                       {mockSlides[currentSlide].titulo && (
-                        <h3 className={`text-xl font-bold text-gray-900 mb-2 leading-tight ${currentFont}`}>
+                        <h3 className={`text-[15px] text-gray-900 mb-1 leading-snug whitespace-pre-wrap ${currentFont}`}>
                           {mockSlides[currentSlide].titulo}
                         </h3>
                       )}
-                      <p className="text-gray-800 text-[15px] leading-snug whitespace-pre-wrap">
+                      <p className={`text-[15px] text-gray-900 leading-snug whitespace-pre-wrap ${currentFont}`}>
                         {mockSlides[currentSlide].texto}
                       </p>
                     </div>
 
                     {/* Imagem */}
-                    <div className="flex-1 rounded-2xl overflow-hidden border border-gray-200 relative mb-2">
-                      <img src={mockSlides[currentSlide].imagem} alt="Post asset" className="absolute inset-0 w-full h-full object-cover" />
-                    </div>
+                    {mockSlides[currentSlide].imagem && (
+                      <div className="flex-1 rounded-2xl overflow-hidden border border-gray-200 relative mb-2">
+                        <img src={mockSlides[currentSlide].imagem} alt="Post asset" className="absolute inset-0 w-full h-full object-cover" />
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>
@@ -1093,21 +1156,40 @@ export default function AssetEditor() {
           </div>
 
           {/* Strip dos Thumbnailzinhos */}
-          <div className="flex gap-3 justify-center mt-8 px-4 w-full overflow-x-auto custom-scrollbar pb-2">
+          <div className="flex gap-3 justify-center items-center mt-8 px-4 w-full overflow-x-auto custom-scrollbar pb-2 pt-2">
             {mockSlides.map((slide, idx) => (
-              <button 
-                key={idx}
-                onClick={() => setCurrentSlide(idx)}
-                className={`flex-none w-16 h-16 rounded-lg bg-cover bg-center border-2 transition-all overflow-hidden relative ${
-                  idx === currentSlide ? 'border-blue-500 shadow-lg shadow-blue-500/20' : 'border-white/10 opacity-50 hover:opacity-100'
-                }`}
-                style={{ backgroundImage: `url('${slide.imagem}')` }}
-              >
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">{idx + 1}</span>
-                </div>
-              </button>
+              <div key={idx} className="relative group flex-none">
+                <button 
+                  onClick={() => setCurrentSlide(idx)}
+                  className={`w-16 h-16 rounded-lg bg-cover bg-center border-2 transition-all overflow-hidden relative ${
+                    idx === currentSlide ? 'border-blue-500 shadow-lg shadow-blue-500/20' : 'border-white/10 opacity-50 hover:opacity-100'
+                  }`}
+                  style={{ backgroundImage: `url('${slide.imagem}')` }}
+                >
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">{idx + 1}</span>
+                  </div>
+                </button>
+                {mockSlides.length > 1 && (
+                  <button
+                    onClick={(e) => handleRemoveSlide(e, idx)}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                    title="Remover slide"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
             ))}
+            
+            {/* Botão de Adicionar Lâmina Manualmente */}
+            <button 
+              onClick={handleAddSlide}
+              className="flex-none w-16 h-16 rounded-lg border-2 border-dashed border-white/20 hover:border-white/40 bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all text-slate-400 hover:text-white"
+              title="Adicionar nova lâmina vazia"
+            >
+              <Plus className="w-6 h-6" />
+            </button>
           </div>
           
         </section>
@@ -1318,26 +1400,55 @@ export default function AssetEditor() {
                       {mockSlides[currentSlide].ai_generated ? "Limite de IA atingido" : isGeneratingImage ? "Gerando Arte Épica..." : "Gerar Imagem com IA"}
                     </button>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-slate-300 py-3 rounded-xl font-bold text-[11px] flex items-center justify-center gap-2 transition-all border border-white/5 active:scale-95">
-                        <ImageIcon className="w-3.5 h-3.5" />
-                        Quero enviar uma foto
-                        <input 
-                          type="file" 
-                          accept="image/*" 
-                          className="hidden" 
-                          onChange={handleImageUpload}
-                        />
-                      </label>
-                      <button 
+                    <div className="grid grid-cols-4 gap-2">
+                       <label className="cursor-pointer bg-white/5 hover:bg-white/10 text-slate-300 py-3 rounded-xl font-bold text-[10px] flex flex-col items-center justify-center gap-1 transition-all border border-white/5 active:scale-95 text-center px-1">
+                         <ImageIcon className="w-3.5 h-3.5" />
+                         <span>Upload</span>
+                         <input 
+                           type="file" 
+                           accept="image/*" 
+                           className="hidden" 
+                           onChange={handleImageUpload}
+                         />
+                       </label>
+                       
+                       <button 
+                         onClick={() => {
+                           const newSlides = [...mockSlides];
+                           newSlides[currentSlide] = { ...newSlides[currentSlide], imagem: '' };
+                           setMockSlides(newSlides);
+                         }}
+                         className="bg-white/5 hover:bg-white/10 text-slate-300 py-3 rounded-xl font-bold text-[10px] flex flex-col items-center justify-center gap-1 transition-all border border-white/5 active:scale-95 text-center px-1"
+                       >
+                         <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                         <span>Sem Foto</span>
+                       </button>
+
+                       <button 
+                         onClick={() => {
+                           const img = mockSlides[currentSlide].imagem;
+                           if (!img || img.match(/photo-\d+\?/)) {
+                             alert("Gere com IA, Envie uma Foto ou Busque na Web antes de ajustar.");
+                           } else {
+                             setImageToCrop(img);
+                             setCropType('main');
+                             setCropModalOpen(true);
+                           }
+                         }}
+                         className="bg-white/5 hover:bg-white/10 text-slate-300 py-3 rounded-xl font-bold text-[10px] flex flex-col items-center justify-center gap-1 transition-all border border-white/5 active:scale-95 text-center px-1"
+                       >
+                         <Camera className="w-3.5 h-3.5" />
+                         <span>Enquadrar</span>
+                       </button>
+                       <button 
                         onClick={handleGenerateAllAIImages}
                         disabled={isGeneratingImage}
-                        className="bg-white/5 hover:bg-white/10 text-slate-300 py-3 rounded-xl font-bold text-[11px] flex items-center justify-center gap-2 transition-all border border-white/5 active:scale-95"
+                        className="bg-white/5 hover:bg-white/10 text-slate-300 py-3 rounded-xl font-bold text-[10px] flex flex-col items-center justify-center gap-1 transition-all border border-white/5 active:scale-95 text-center px-1"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
-                        Gerar Todas
+                        <span>Gerar Todas</span>
                       </button>
-                    </div>
+                     </div>
                   </div>
 
                   {/* AJUSTE DE TOM */}
@@ -1462,6 +1573,26 @@ export default function AssetEditor() {
             })}
           </div>
 
+          <div className="px-6 pb-6 text-center">
+             <p className="text-[10px] text-slate-500 font-medium mb-3">Acesse os links de referência para colocar mais informações na sua copy final.</p>
+             {incomingData?.sources?.length > 0 && (
+               <div className="flex flex-col gap-2 items-center text-left">
+                 {incomingData.sources.map((src: any, i: number) => (
+                   <a 
+                     key={i} 
+                     href={src.url} 
+                     target="_blank" 
+                     rel="noopener noreferrer"
+                     className="text-xs text-blue-400 hover:text-blue-300 transition-colors w-full bg-blue-500/10 hover:bg-blue-500/20 px-3 py-2 rounded-lg border border-blue-500/20 truncate"
+                     title={src.title || src.url}
+                   >
+                     {src.title || `Referência ${i + 1}`}
+                   </a>
+                 ))}
+               </div>
+             )}
+          </div>
+
           {/* Área da Legenda */}
           <div className="p-6 border-t border-white/10 mt-auto bg-slate-950/50">
             <div className="flex items-center justify-between mb-4">
@@ -1545,23 +1676,42 @@ export default function AssetEditor() {
               className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md overflow-hidden flex flex-col shadow-2xl"
             >
               <div className="p-4 border-b border-white/10 flex justify-between items-center">
-                <h3 className="text-white font-bold text-sm">Ajustar Foto do Perfil</h3>
+                <h3 className="text-white font-bold text-sm">
+                  {cropType === 'avatar' ? 'Ajustar Foto do Perfil' : 'Ajustar Imagem do Post'}
+                </h3>
                 <button onClick={() => setCropModalOpen(false)} className="text-slate-400 hover:text-white transition-colors text-xl leading-none">&times;</button>
               </div>
-              <div className="relative w-full h-80 bg-black">
-                <Cropper
-                  image={imageToCrop}
-                  crop={crop}
-                  zoom={zoom}
-                  aspect={1}
-                  cropShape="round"
-                  showGrid={false}
-                  onCropChange={setCrop}
-                  onZoomChange={setZoom}
-                  onCropComplete={(_, croppedPixels) => setCroppedAreaPixels(croppedPixels)}
-                />
+              <div className="relative w-full h-80 bg-black flex flex-col md:flex-row">
+                <div className="flex-1 relative h-64 md:h-80">
+                  <Cropper
+                    image={imageToCrop}
+                    crop={crop}
+                    zoom={zoom}
+                    aspect={cropType === 'avatar' ? 1 : 4/5}
+                    cropShape={cropType === 'avatar' ? 'round' : 'rect'}
+                    showGrid={cropType === 'main'}
+                    onCropChange={setCrop}
+                    onZoomChange={setZoom}
+                    onCropComplete={(_, croppedPixels) => setCroppedAreaPixels(croppedPixels)}
+                  />
+                </div>
+                {/* Lateral com Controle de Zoom */}
+                <div className="w-full md:w-20 bg-slate-900 border-t md:border-t-0 md:border-l border-white/10 flex flex-row md:flex-col items-center justify-center p-4 gap-4">
+                  <span className="text-white/60 text-[10px] font-bold uppercase tracking-widest hidden md:block" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Zoom</span>
+                  <input
+                    type="range"
+                    value={zoom}
+                    min={1}
+                    max={3}
+                    step={0.1}
+                    aria-labelledby="Zoom"
+                    onChange={(e) => setZoom(Number(e.target.value))}
+                    className="w-full md:h-32 accent-indigo-500 cursor-pointer"
+                    style={{ WebkitAppearance: 'slider-vertical' } as React.CSSProperties}
+                  />
+                </div>
               </div>
-              <div className="p-4 flex gap-3">
+              <div className="p-4 flex gap-3 border-t border-white/10">
                 <button 
                   onClick={() => setCropModalOpen(false)}
                   className="flex-1 py-2 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-white transition-colors border border-white/10"

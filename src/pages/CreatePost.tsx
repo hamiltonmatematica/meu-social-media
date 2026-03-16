@@ -374,7 +374,8 @@ export default function CreatePost() {
                               ...researchData.generatedData, 
                               topic, 
                               tone: selectedTone,
-                              postId: researchData.postId
+                              postId: researchData.postId,
+                              sources: researchData.sources
                             } 
                           } 
                         })}
