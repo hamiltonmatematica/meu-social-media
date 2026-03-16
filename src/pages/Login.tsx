@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Zap, Mail, Lock, User, Eye, EyeOff, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function Login() {
-  const { signIn, signUp, sendPasswordReset } = useAuth();
+  const { user, signIn, signUp, sendPasswordReset } = useAuth();
+  const navigate = useNavigate();
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -12,6 +14,11 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  useEffect(() => {
+    if (user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,6 +29,8 @@ export default function Login() {
     if (mode === 'login') {
       const result = await signIn(email, password);
       if (result.error) setError(result.error);
+      else navigate('/');
+
     } else if (mode === 'register') {
       if (!name.trim()) {
         setError('Digite seu nome');
