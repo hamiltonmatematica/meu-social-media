@@ -6,6 +6,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  userCredits: number;
+  fetchCredits: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
@@ -18,6 +20,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userCredits, setUserCredits] = useState<number>(0);
+
+  const fetchCredits = async () => {
+    if (!user) return;
+    const { data } = await supabase.from('sm_users').select('credits').eq('id', user.id).single();
+    if (data) {
+      setUserCredits(data.credits || 0);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchCredits();
+    }
+  }, [user]);
 
   useEffect(() => {
     // Verificar sessão atual
@@ -58,8 +75,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: user.id,
         email: user.email,
         name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário',
+        credits: 2, // 2 créditos grátis no início
         created_at: new Date().toISOString(),
       });
+      setUserCredits(2);
+    } else {
+      fetchCredits();
     }
 
     // Atualizar último login
@@ -103,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, sendPasswordReset }}>
+    <AuthContext.Provider value={{ user, session, loading, userCredits, fetchCredits, signIn, signUp, signOut, sendPasswordReset }}>
       {children}
     </AuthContext.Provider>
   );

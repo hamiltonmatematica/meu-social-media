@@ -2,10 +2,10 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Clock, CheckCircle2, AlertCircle, Download, ExternalLink, RefreshCw, Trash2, UserPlus, LogOut } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, Download, ExternalLink, RefreshCw, Trash2, UserPlus, LogOut, Sparkles } from 'lucide-react';
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, userCredits } = useAuth();
   const [recentPosts, setRecentPosts] = React.useState<any[]>([]);
   const [profiles, setProfiles] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -152,7 +152,10 @@ export default function Dashboard() {
             </div>
             <div className="overflow-hidden">
               <p className="text-sm font-semibold truncate">{user?.user_metadata?.name || 'Usuário'}</p>
-              <p className="text-xs text-slate-500 truncate">{user?.email}</p>
+              <p className="text-xs text-slate-500 truncate mb-1">{user?.email}</p>
+              <div className="inline-flex items-center gap-1 bg-indigo-500/10 px-2 py-0.5 rounded text-[10px] font-bold text-indigo-400 border border-indigo-500/20">
+                <Sparkles className="w-3 h-3" /> {userCredits} créditos
+              </div>
             </div>
           </div>
           <button

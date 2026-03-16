@@ -6,12 +6,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { researchTopic } from '../lib/ai/research';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import BillingModal from '../components/BillingModal';
 
 export default function CreatePost() {
-  const { user } = useAuth();
+  const { user, userCredits, fetchCredits } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [topic, setTopic] = useState(searchParams.get('topic') || '');
+  const [showBillingModal, setShowBillingModal] = useState(false);
   const [numSlides, setNumSlides] = useState(5);
   const [selectedTone, setSelectedTone] = useState('informativo');
   const [selectedDensity, setSelectedDensity] = useState('objetivo');
@@ -29,6 +31,11 @@ export default function CreatePost() {
     e.preventDefault();
     if (!topic.trim()) return;
 
+    if (userCredits <= 0) {
+      setShowBillingModal(true);
+      return;
+    }
+
     setStep(2);
     setIsSearching(true);
     
@@ -36,6 +43,10 @@ export default function CreatePost() {
     const result = await researchTopic(topic, numSlides, selectedTone, selectedDensity);
     
     if (result.success) {
+      // Deduz 1 crédito usando a função segura do Banco
+      await supabase.rpc('deduct_user_credit');
+      await fetchCredits(); // Atualiza contador na tela
+
       // Criar rascunho automático no Supabase
       const { data: savedPost, error: saveError } = await supabase
         .from('posts')
@@ -74,6 +85,8 @@ export default function CreatePost() {
   return (
     <div className="bg-[#0A0A0B] text-slate-100 min-h-screen font-sans selection:bg-blue-500/30">
       
+      <BillingModal isOpen={showBillingModal} onClose={() => setShowBillingModal(false)} />
+
       {/* Header Premium */}
       <header className="flex items-center justify-between border-b border-white/10 bg-black/50 backdrop-blur-md px-6 py-4 sticky top-0 z-50">
         <div className="flex items-center gap-4">
@@ -101,7 +114,17 @@ export default function CreatePost() {
             </div>
           </div>
         </div>
-        <div className="w-10"></div>{/* Spacer to balance the header */}
+        
+        {/* Créditos Display */}
+        <div 
+          onClick={() => setShowBillingModal(true)}
+          className="flex items-center gap-2 bg-slate-800/50 hover:bg-slate-800 border border-white/10 px-4 py-2 rounded-xl cursor-pointer transition-colors"
+          title="Clique para adicionar mais créditos"
+        >
+          <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+          <span className="text-sm font-bold text-white">{userCredits}</span>
+          <span className="text-xs font-medium text-slate-400">créditos</span>
+        </div>
       </header>
 
       <main className="max-w-4xl mx-auto py-12 px-6">
