@@ -217,7 +217,7 @@ export default function AssetEditor() {
     const maxWidth = CANVAS_W - (paddingX * 2);
 
     if (globalStyle === 'classic' || globalStyle === 'centered') {
-      const titleFontSize = Math.round( (globalStyle === 'centered' ? 42 : 36) * S);
+      const titleFontSize = Math.round( (globalStyle === 'centered' ? 36 : 36) * S);
       const titleLineHeight = Math.round(titleFontSize * 1.25);
       ctx.font = `800 ${titleFontSize}px Inter, -apple-system, Helvetica, sans-serif`;
       const titleLines = wrapText(ctx, (slide.titulo || ''), maxWidth);
@@ -777,7 +777,7 @@ export default function AssetEditor() {
   };
 
   // Upload de imagem para Supabase Storage (persistência)
-  const uploadImageToStorage = async (imageUrl: string, postId: string, slideIndex: number): Promise<string> => {
+  const uploadImageToStorage = async (imageUrl: string, postId: string, slideIndex: number | string): Promise<string> => {
     try {
       let blob: Blob;
 
@@ -864,6 +864,12 @@ export default function AssetEditor() {
         })
       );
 
+      // Persistir Avatar do Twitter se existir (blob: ou data:)
+      let persistentAvatar = twitterAvatar;
+      if (globalStyle === 'twitter' && twitterAvatar && (twitterAvatar.startsWith('blob:') || twitterAvatar.startsWith('data:'))) {
+        persistentAvatar = await uploadImageToStorage(twitterAvatar, postId, 'avatar');
+      }
+
       // Atualizar o post com as URLs permanentes
       const { error: updateError } = await supabase
         .from('posts')
@@ -874,7 +880,7 @@ export default function AssetEditor() {
             globalStyle,
             twitterName,
             twitterHandle,
-            twitterAvatar,
+            twitterAvatar: persistentAvatar,
             sources: incomingData?.sources || []
           },
           title: incomingData?.topic || "Sem título",
@@ -1079,19 +1085,21 @@ export default function AssetEditor() {
 
                 {/* Textos: MODO CENTERED */}
                 {globalStyle === 'centered' && (
-                  <div className={`absolute inset-x-8 inset-y-0 flex flex-col justify-center ${mockSlides[currentSlide].alinhamento || 'text-center'}`}>
-                    <h3 
-                      className={`text-4xl md:text-4xl font-extrabold leading-tight mb-6 drop-shadow-lg ${currentFont}`}
-                      style={{ color: titleColor }}
-                    >
-                      {mockSlides[currentSlide].titulo}
-                    </h3>
-                    <p 
-                      className="text-base md:text-lg leading-relaxed bg-black/30 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10"
-                      style={{ color: textColor }}
-                    >
-                      {mockSlides[currentSlide].texto}
-                    </p>
+                  <div className={`absolute inset-x-8 inset-y-0 flex flex-col justify-center overflow-y-auto custom-scrollbar pb-8 pt-8 ${mockSlides[currentSlide].alinhamento || 'text-center'}`}>
+                    <div className="my-auto flex flex-col">
+                      <h3 
+                        className={`text-2xl md:text-3xl font-extrabold leading-tight mb-4 drop-shadow-lg shrink-0 ${currentFont}`}
+                        style={{ color: titleColor }}
+                      >
+                        {mockSlides[currentSlide].titulo}
+                      </h3>
+                      <p 
+                        className="text-sm md:text-sm leading-relaxed bg-black/30 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 shrink-0"
+                        style={{ color: textColor }}
+                      >
+                        {mockSlides[currentSlide].texto}
+                      </p>
+                    </div>
                   </div>
                 )}
 
