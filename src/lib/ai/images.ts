@@ -21,6 +21,7 @@ async function generateWithDalle(prompt: string): Promise<string | null> {
         n: 1,
         size: "1024x1024",
         quality: "standard",
+        response_format: "b64_json",
       }),
     });
 
@@ -31,20 +32,8 @@ async function generateWithDalle(prompt: string): Promise<string | null> {
     }
 
     const data = await response.json();
-    if (data.data?.[0]?.url) {
-      // Converte a URL do DALL-E em base64 para evitar CORS
-      try {
-        const imgResp = await fetch(data.data[0].url);
-        const blob = await imgResp.blob();
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = () => resolve(data.data[0].url); // fallback pra URL direta
-          reader.readAsDataURL(blob);
-        });
-      } catch {
-        return data.data[0].url; // fallback pra URL direta se fetch falhar
-      }
+    if (data.data?.[0]?.b64_json) {
+      return `data:image/png;base64,${data.data[0].b64_json}`;
     }
     return null;
   } catch (error) {

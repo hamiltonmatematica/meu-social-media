@@ -1731,7 +1731,7 @@ export default function AssetEditor() {
                 </h3>
                 <button onClick={() => setCropModalOpen(false)} className="text-slate-400 hover:text-white transition-colors text-xl leading-none">&times;</button>
               </div>
-              <div className="relative w-full h-80 bg-black flex flex-col md:flex-row">
+              <div className="relative w-full h-80 bg-black flex flex-col md:flex-row overflow-hidden">
                 <div className="flex-1 relative h-64 md:h-80">
                   <Cropper
                     image={imageToCrop}
@@ -1761,16 +1761,16 @@ export default function AssetEditor() {
                   />
                 </div>
               </div>
-              <div className="p-4 flex gap-3 border-t border-white/10">
+              <div className="p-4 flex gap-3 border-t border-white/10 relative z-50">
                 <button 
                   onClick={() => setCropModalOpen(false)}
-                  className="flex-1 py-2 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-white transition-colors border border-white/10"
+                  className="flex-1 py-3 rounded-xl text-sm font-bold bg-white/5 hover:bg-white/10 text-white transition-colors border border-white/10 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button 
                   onClick={handleSaveCrop}
-                  className="flex-1 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                  className="flex-1 py-3 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer"
                 >
                   Confirmar
                 </button>
