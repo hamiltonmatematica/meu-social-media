@@ -51,6 +51,7 @@ REGRAS CRÍTICAS DE ESCRITA:
 4. NUNCA inclua referências numéricas ou citações no estilo [1], [2], [n] em nenhum campo do JSON. O texto deve ser limpo e pronto para postagem.
 5. Cada campo deve conter a COPY EXATA que será escrita na imagem. 
 6. Use gatilhos mentais (curiosidade, medo de perder, autoridade, benefício).
+7. REGRA DE OURO PARA TÍTULOS: O "titulo" de CADA lâmina DEVE ser um HOOK MAGNÉTICO — uma frase curta, provocativa e irresistível que prenda a atenção instantaneamente. Use técnicas como: perguntas retóricas impactantes ("Você sabia que...?"), dados chocantes ("97% das pessoas erram nisso!"), promessas ousadas ("O segredo que ninguém te conta"), contrapontos provocativos ("Esqueça tudo que você sabia sobre..."), urgência ("Isso vai mudar TUDO em 2025"). O título NUNCA pode ser genérico ou descritivo — ele deve fazer o leitor PARAR de rolar o feed e QUERER ler o restante da lâmina.
 
 Responda ESTRITAMENTE em formato JSON.
 
@@ -60,7 +61,7 @@ Esquema JSON:
   "slides": [
     { 
       "ordem": 1, 
-      "titulo": "Headline", 
+      "titulo": "Hook magnético e provocativo que prenda atenção", 
       "texto": "Copy do slide",
       "image_prompt": "Descrição detalhada para DALL-E."
     }
