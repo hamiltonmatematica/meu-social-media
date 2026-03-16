@@ -681,7 +681,8 @@ export default function AssetEditor() {
           const prompt = newSlides[i].image_prompt || newSlides[i].titulo;
           if (prompt) {
             const imageUrl = await generateSlideImage(prompt);
-            if (imageUrl) {
+            // Verifica se o resultado é uma string válida (não um objeto de erro)
+            if (typeof imageUrl === 'string') {
               newSlides[i].imagem = imageUrl;
               newSlides[i].ai_generated = true;
             }
@@ -1219,6 +1220,27 @@ export default function AssetEditor() {
               <Plus className="w-6 h-6" />
             </button>
           </div>
+
+          {/* Links de Referência */}
+          {incomingData?.sources?.length > 0 && (
+            <div className="mt-6 px-6 pb-4">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-3 text-center">🔗 Links de Referência</p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                {incomingData.sources.map((src: any, i: number) => (
+                  <a 
+                    key={i} 
+                    href={src.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-blue-400 hover:text-blue-300 transition-colors bg-blue-500/10 hover:bg-blue-500/20 px-3 py-2 rounded-lg border border-blue-500/20 truncate max-w-[280px]"
+                    title={src.url}
+                  >
+                    {src.title || `Referência ${i + 1}`}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
           
         </section>
 
