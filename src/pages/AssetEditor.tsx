@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Sparkles, ArrowLeft, Download, Copy, Check, ChevronLeft, ChevronRight, Image as ImageIcon, Type, AlignLeft, AlignCenter, AlignRight, RefreshCw, MessageSquare, Wand2, Search, Camera, Home, Palette, PackageOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Cropper, { Point, Area } from 'react-easy-crop';
 import { generateSlideImage, translateForSearch } from '../lib/ai/images';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -62,6 +63,36 @@ export default function AssetEditor() {
   const [twitterName, setTwitterName] = useState(incomingData?.twitterName || '');
   const [twitterHandle, setTwitterHandle] = useState(incomingData?.twitterHandle || '');
   const [twitterAvatar, setTwitterAvatar] = useState(incomingData?.twitterAvatar || '');
+  
+  // Crop & Past Avatars State
+  const [pastAvatars, setPastAvatars] = useState<string[]>([]);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+
+  React.useEffect(() => {
+    const fetchAvatars = async () => {
+      try {
+        const { data } = await supabase
+          .from('posts')
+          .select('content')
+          .eq('user_id', user?.id)
+          .not('content', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(30);
+        if (data) {
+          const loadedAvatars = data
+            .map(p => p.content?.twitterAvatar)
+            .filter(Boolean);
+          const uniqueAvatars = Array.from(new Set(loadedAvatars));
+          setPastAvatars(uniqueAvatars.slice(0, 5) as string[]);
+        }
+      } catch (e) {}
+    };
+    if (user?.id) fetchAvatars();
+  }, [user]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -473,11 +504,49 @@ export default function AssetEditor() {
     }
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
-      setTwitterAvatar(url);
+      setImageToCrop(url);
+      setCropModalOpen(true);
+    }
+  };
+
+  const getCroppedImg = async (imageSrc: string, pixelCrop: Area): Promise<string | null> => {
+    const image = await loadCanvasImage(imageSrc);
+    if (!image) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = pixelCrop.width;
+    canvas.height = pixelCrop.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      pixelCrop.width,
+      pixelCrop.height
+    );
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        if (!blob) resolve(null);
+        else resolve(URL.createObjectURL(blob));
+      }, 'image/jpeg');
+    });
+  };
+
+  const handleSaveCrop = async () => {
+    if (imageToCrop && croppedAreaPixels) {
+      const croppedUrl = await getCroppedImg(imageToCrop, croppedAreaPixels);
+      if (croppedUrl) {
+        setTwitterAvatar(croppedUrl);
+        setCropModalOpen(false);
+      }
     }
   };
   const handleGenerateAIImage = async () => {
@@ -1109,9 +1178,27 @@ export default function AssetEditor() {
                         type="file" 
                         accept="image/*" 
                         className="hidden" 
-                        onChange={handleAvatarUpload}
+                        onChange={handleAvatarSelect}
                       />
                     </label>
+
+                    {/* Exibe fotos passadas se houver */}
+                    {pastAvatars.length > 0 && (
+                      <div className="mt-3">
+                        <label className="text-[9px] text-slate-500 font-bold uppercase mb-1.5 block">Recentes</label>
+                        <div className="flex gap-2">
+                          {pastAvatars.map((url, i) => (
+                            <button 
+                              key={i} 
+                              onClick={() => setTwitterAvatar(url)}
+                              className="w-8 h-8 rounded-full border border-white/10 overflow-hidden hover:border-indigo-500 transition-all opacity-80 hover:opacity-100"
+                            >
+                              <img src={url} alt="Recent avatar" className="w-full h-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1446,6 +1533,52 @@ export default function AssetEditor() {
         </aside>
 
       </main>
+
+      {/* MODAL DE CROPPER */}
+      <AnimatePresence>
+        {cropModalOpen && imageToCrop && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md overflow-hidden flex flex-col shadow-2xl"
+            >
+              <div className="p-4 border-b border-white/10 flex justify-between items-center">
+                <h3 className="text-white font-bold text-sm">Ajustar Foto do Perfil</h3>
+                <button onClick={() => setCropModalOpen(false)} className="text-slate-400 hover:text-white transition-colors text-xl leading-none">&times;</button>
+              </div>
+              <div className="relative w-full h-80 bg-black">
+                <Cropper
+                  image={imageToCrop}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1}
+                  cropShape="round"
+                  showGrid={false}
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={(_, croppedPixels) => setCroppedAreaPixels(croppedPixels)}
+                />
+              </div>
+              <div className="p-4 flex gap-3">
+                <button 
+                  onClick={() => setCropModalOpen(false)}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-white transition-colors border border-white/10"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleSaveCrop}
+                  className="flex-1 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+                >
+                  Confirmar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
