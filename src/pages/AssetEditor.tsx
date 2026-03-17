@@ -1825,15 +1825,39 @@ export default function AssetEditor() {
                         await navigator.share({ files, title: 'Meus Posts' });
                       } catch(e) { console.log('Share error or abort'); }
                     } else {
-                      // Fallback clássico
-                      downloadModalData.forEach((d, i) => {
-                        setTimeout(() => {
+                      // Fallback clássico (Desktop): Cria um ZIP para não gerar 5 popups chatos
+                      (async () => {
+                        try {
+                          if (!(window as any).JSZip) {
+                            const script = document.createElement('script');
+                            script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+                            document.head.appendChild(script);
+                            await new Promise(r => script.onload = r);
+                          }
+                          const zip = new (window as any).JSZip();
+                          downloadModalData.forEach(d => {
+                            zip.file(d.name, d.blob);
+                          });
+                          const zipBlob = await zip.generateAsync({ type: "blob" });
+                          const zipUrl = URL.createObjectURL(zipBlob);
                           const a = document.createElement('a');
-                          a.href = d.url;
-                          a.download = d.name;
+                          a.href = zipUrl;
+                          a.download = "carrossel_socialflow.zip";
                           a.click();
-                        }, i * 300);
-                      });
+                          URL.revokeObjectURL(zipUrl);
+                        } catch (e) {
+                          console.error("Erro ao gerar ZIP", e);
+                          // Ultimo caso: envia as 5
+                          downloadModalData.forEach((d, i) => {
+                            setTimeout(() => {
+                              const a = document.createElement('a');
+                              a.href = d.url;
+                              a.download = d.name;
+                              a.click();
+                            }, i * 300);
+                          });
+                        }
+                      })();
                     }
                   }}
                   className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition-colors shadow-lg shadow-indigo-600/20"
