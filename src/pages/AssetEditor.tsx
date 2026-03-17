@@ -389,7 +389,8 @@ export default function AssetEditor() {
       const file = new File([blob], fileName, { type: 'image/png' });
 
       // No mobile, tenta compartilhar nativamente pra ir pra Galeria
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
           await navigator.share({
             files: [file],
@@ -428,7 +429,8 @@ export default function AssetEditor() {
         files.push(new File([blob], `slide-${i + 1}.png`, { type: 'image/png' }));
       }
 
-      if (navigator.share && navigator.canShare && navigator.canShare({ files })) {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile && navigator.share && navigator.canShare && navigator.canShare({ files })) {
         try {
           await navigator.share({
             files,
@@ -441,18 +443,23 @@ export default function AssetEditor() {
         }
       }
 
-      // Fallback clássico para PC: baixa sequencialmente sincronamente
-      blobs.forEach((blob, i) => {
-        const url = URL.createObjectURL(blob);
+      // Fallback clássico para PC ou se o share falhar (baixa sequencialmente)
+      for (let i = 0; i < blobs.length; i++) {
+        await new Promise(r => setTimeout(r, i === 0 ? 0 : 400)); // Pequeno delay pra não travar/bloquear
+        const url = URL.createObjectURL(blobs[i]);
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
         a.download = `slide-${i + 1}.png`;
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      });
+        
+        // Remove logo após o click
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 100);
+      }
     } catch (err) {
       console.error('Erro ao baixar slides:', err);
     } finally {
