@@ -148,11 +148,25 @@ export default function AssetEditor() {
         if (imgSrc === url && !url.startsWith('blob:') && !url.startsWith('data:')) {
           img.crossOrigin = 'anonymous';
         }
-        img.onload = () => resolve(img);
-        img.onerror = () => resolve(null);
+        
+        // Timeout de segurança para não travar o app se a imagem sumiu
+        const timer = setTimeout(() => {
+          console.warn('Image load timeout:', url);
+          resolve(null);
+        }, 5000);
+
+        img.onload = () => {
+          clearTimeout(timer);
+          resolve(img);
+        };
+        img.onerror = () => {
+          clearTimeout(timer);
+          resolve(null);
+        };
         img.src = imgSrc;
       });
-    } catch {
+    } catch (e) {
+      console.error('loadCanvasImage error', e);
       return null;
     }
   };
@@ -416,37 +430,32 @@ export default function AssetEditor() {
     }
   };
 
-  // Download de todas as imagens de uma vez
+  // Download de todas as imagens de uma vez (SEQUENCIAL PARA DESKTOP)
   const downloadAllSlides = async () => {
     setIsDownloadingAll(true);
     try {
-      // Cria um array de arquivos para compartilhar tudo junto no mobile
-      const files: File[] = [];
-      const blobs: Blob[] = [];
-      for (let i = 0; i < mockSlides.length; i++) {
-        const blob = await renderSlideToCanvas(mockSlides[i]);
-        blobs.push(blob);
-        files.push(new File([blob], `slide-${i + 1}.png`, { type: 'image/png' }));
-      }
-
       const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile && navigator.share && navigator.canShare && navigator.canShare({ files })) {
-        try {
-          await navigator.share({
-            files,
-            title: 'Baixar Todos os Posts',
-          });
+      const files: File[] = [];
+      
+      // No Mobile, precisamos de todos os Blobs antes do navigator.share
+      if (isMobile) {
+        for (let i = 0; i < mockSlides.length; i++) {
+          const blob = await renderSlideToCanvas(mockSlides[i]);
+          files.push(new File([blob], `slide-${i + 1}.png`, { type: 'image/png' }));
+        }
+        
+        if (navigator.share && navigator.canShare && navigator.canShare({ files })) {
+          await navigator.share({ files, title: 'Meus Posts' });
           setIsDownloadingAll(false);
           return;
-        } catch (shareErr) {
-          console.log('Compartilhamento múltiplo cancelado', shareErr);
         }
       }
 
-      // Fallback clássico para PC ou se o share falhar (baixa sequencialmente)
-      for (let i = 0; i < blobs.length; i++) {
-        await new Promise(r => setTimeout(r, i === 0 ? 0 : 400)); // Pequeno delay pra não travar/bloquear
-        const url = URL.createObjectURL(blobs[i]);
+      // No PC (Desktop): Executamos 1 por 1 imediatamente após renderizar
+      // Isso ajuda a manter o "User Gesture" ativo no navegador
+      for (let i = 0; i < mockSlides.length; i++) {
+        const blob = await renderSlideToCanvas(mockSlides[i]);
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
@@ -454,14 +463,25 @@ export default function AssetEditor() {
         document.body.appendChild(a);
         a.click();
         
-        // Remove logo após o click
+        // Limpeza rápida
         setTimeout(() => {
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
-        }, 100);
+        }, 2000);
+
+        // Pequena pausa apenas para o navegador não engasgar
+        if (i < mockSlides.length - 1) {
+          await new Promise(r => setTimeout(r, 150));
+        }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao baixar slides:', err);
+      // Se der erro de segurança (CORS), avisa o usuário
+      if (err.message?.includes('SecurityError') || err.message?.includes('tainted')) {
+        alert("O navegador bloqueou o download por segurança (CORS). Isso acontece em fotos externas protegidas. Tente trocar a foto desse slide ou usar uma gerada pela IA.");
+      } else {
+        alert("Erro ao baixar. Tente gerar o post novamente.");
+      }
     } finally {
       setIsDownloadingAll(false);
     }
