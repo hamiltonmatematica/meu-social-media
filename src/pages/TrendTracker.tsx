@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Sparkles, TrendingUp, Search, PlusCircle, PenTool, CheckCircle2, Clock, Globe, RefreshCw, Home, Edit3, Trash2, Check } from 'lucide-react';
 import { getTrends } from '../lib/ai/research';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../contexts/AuthContext';
 
 // Simulação de resposta de API (Poderia vir direto da Tavily / Perplexity)
 const MOCK_NEWS = {
@@ -57,7 +58,17 @@ export default function TrendTracker() {
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
+  const { user, userRole } = useAuth();
+
+  const ADMIN_EMAILS = [
+    import.meta.env.VITE_ADMIN_EMAIL || 'admin@socialflow.ai',
+    'hamilton.vinicius@gmail.com'
+  ];
+
+  const isAdmin = user && (ADMIN_EMAILS.includes(user.email || '') || userRole === 'admin');
+
   const canUpdate = (tag: string) => {
+    if (isAdmin) return true;
     const last = lastUpdate[tag];
     if (!last) return true;
     const diff = Date.now() - new Date(last).getTime();
@@ -87,7 +98,7 @@ export default function TrendTracker() {
 
   const handleAddTag = (e: React.FormEvent) => {
     e.preventDefault();
-    if (tags.length >= 3) {
+    if (!isAdmin && tags.length >= 3) {
       alert("Você atingiu o limite de 3 tópicos monitorados. Remova um para adicionar outro.");
       return;
     }
