@@ -1817,24 +1817,25 @@ export default function AssetEditor() {
 
               <div className="p-6 border-t border-white/10 space-y-3 shrink-0 bg-slate-950/50">
                 <button 
-                  onClick={async () => {
-                    // Compartilhamento nativo iOS/Android sincronamente com o click!
-                    if (navigator.share && navigator.canShare) {
-                      try {
-                        const files = downloadModalData.map(d => new File([d.blob], d.name, { type: 'image/png' }));
-                        await navigator.share({ files, title: 'Meus Posts' });
-                      } catch(e) { console.log('Share error or abort'); }
+                  onClick={() => {
+                    // Verifica suporte a Compartilhamento Nativo com Arquivos (Mobile devices)
+                    const files = downloadModalData.map(d => new File([d.blob], d.name, { type: 'image/png' }));
+                    
+                    if (navigator.share && navigator.canShare && navigator.canShare({ files })) {
+                      // Usa a gaveta nativa do iOS/Android
+                      navigator.share({ files, title: 'Meus Posts' })
+                        .catch(e => console.log('Share cancelado ou falhou', e));
                     } else {
-                      // Fallback clássico: envia as fotos 1 por 1
-                      downloadModalData.forEach((d, i) => {
-                        setTimeout(() => {
-                          const a = document.createElement('a');
-                          a.href = d.url;
-                          a.download = d.name;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                        }, i * 300);
+                      // Fallback: Download clássico síncrono para Desktop
+                      // Importante: Sem async/await ou setTimeout para evitar bloqueio de popups
+                      downloadModalData.forEach((d) => {
+                        const a = document.createElement('a');
+                        a.href = d.url;
+                        a.download = d.name;
+                        a.style.display = 'none';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
                       });
                     }
                   }}
