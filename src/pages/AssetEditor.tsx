@@ -1754,8 +1754,7 @@ export default function AssetEditor() {
                   </div>
                 </div>
               </div>
-            </div>
-          
+
           <div className="p-6 border-b border-white/10 bg-slate-900">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
               <Camera className="w-4 h-4 text-emerald-400" /> Buscar Fotos Reais
