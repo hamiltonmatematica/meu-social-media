@@ -133,14 +133,17 @@ export default function AssetEditor() {
     try {
       let imgSrc = url;
       
-      // Se for URL externa (não blob nem data:), converte pra blob pra evitar CORS
+      // Se for URL externa (não blob nem data:), tenta buscar via CORS 
       if (!url.startsWith('blob:') && !url.startsWith('data:')) {
         try {
-          const resp = await fetch(url, { mode: 'cors' });
+          const resp = await fetch(imgSrc, { mode: 'cors' });
+          if (!resp.ok) throw new Error('CORS block fetch');
           const blob = await resp.blob();
           imgSrc = URL.createObjectURL(blob);
         } catch {
-          imgSrc = url;
+          // Fallback: se houver erro CORS no fetch, não podemos carregar a imagem original como url,
+          // porque se ela desenhar no canvas, ele taintará e proibirá o Blob final e travará o app.
+          return null; // A imagem simplesmente não renderiza (fica fundo escuro) mas NAO TRAVA DOWNLOAD!
         }
       }
       
@@ -375,10 +378,14 @@ export default function AssetEditor() {
     }
 
     return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error('Falha gerar blob da imagem'));
-      }, 'image/png', 1.0);
+      try {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Falha ao gerar blob da imagem.'));
+        }, 'image/png', 1.0);
+      } catch (err) {
+        reject(new Error('O Canvas foi manchado por uma imagem externa e o download foi bloqueado pelo Navegador.'));
+      }
     });
   };
 
@@ -390,8 +397,9 @@ export default function AssetEditor() {
       const fileName = `slide-${index + 1}.png`;
       const url = URL.createObjectURL(blob);
       setDownloadModalData([{ url, name: fileName, blob }]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao preparar slide:', err);
+      alert(`Erro ao processar imagem: ${err.message || 'Restrição de segurança do navegador (CORS). Tente usar uma foto sua gerada pela IA em vez de stock.'}`);
     } finally {
       setIsDownloadingAll(false);
     }
@@ -404,12 +412,14 @@ export default function AssetEditor() {
       const data = [];
       for (let i = 0; i < mockSlides.length; i++) {
         const blob = await renderSlideToCanvas(mockSlides[i]);
+        if (!blob) throw new Error("A imagem falhou ao compilar no Canvas.");
         const url = URL.createObjectURL(blob);
         data.push({ url, name: `slide-${i + 1}.png`, blob });
       }
       setDownloadModalData(data);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao preparar slides:', err);
+      alert(`Ocorreu um erro ao carregar as imagens: ${err.message || 'O navegador bloqueou a cópia da imagem original por segurança. Mude a foto do slide ou tente outra imagem livre.'}`);
     } finally {
       setIsDownloadingAll(false);
     }
