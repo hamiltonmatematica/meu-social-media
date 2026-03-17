@@ -172,7 +172,7 @@ export default function Dashboard() {
       {/* BEGIN: MainContent */}
       <main className="flex-1 flex flex-col overflow-y-auto bg-slate-950 pb-20 md:pb-0">
         {/* BEGIN: TopHeader */}
-        <header className="h-16 border-b border-slate-800 px-8 flex items-center justify-between sticky top-0 bg-slate-950/80 backdrop-blur-md z-10">
+        <header className="h-auto min-h-[4rem] py-3 md:py-0 md:h-16 border-b border-slate-800 px-4 md:px-8 flex flex-wrap items-center justify-between sticky top-0 bg-slate-950/80 backdrop-blur-md z-10 gap-3">
           <div>
             <h1 className="text-xl font-bold">Visão Geral do Painel</h1>
           </div>
@@ -184,7 +184,7 @@ export default function Dashboard() {
         </header>
         {/* END: TopHeader */}
 
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-8 space-y-8">
           {/* BEGIN: Selected Profiles */}
           <section className="space-y-4">
             <div className="flex items-center justify-between">

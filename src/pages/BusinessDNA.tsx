@@ -82,7 +82,7 @@ export default function BusinessDNA() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto py-12 px-6">
+      <main className="max-w-4xl mx-auto py-6 md:py-12 px-4 md:px-6">
         
         <AnimatePresence mode="wait">
           {isEditingDNA ? (
@@ -198,7 +198,7 @@ export default function BusinessDNA() {
               animate={{ opacity: 1, scale: 1 }}
               className="space-y-8"
             >
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900/50 border border-white/5 p-8 rounded-3xl">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-900/50 border border-white/5 p-5 md:p-8 rounded-3xl">
                 <div className="flex items-center gap-6">
                   <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 border-4 border-slate-800 shadow-xl flex items-center justify-center text-3xl font-black text-white">
                     {formData.nome.charAt(0)}

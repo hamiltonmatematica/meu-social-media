@@ -60,7 +60,7 @@ export default function Billing() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto py-16 px-6">
+      <main className="max-w-6xl mx-auto py-8 md:py-16 px-4 md:px-6">
         <div className="mb-16 text-center max-w-3xl mx-auto">
           <h1 className="text-4xl md:text-5xl font-black text-white mb-6">
             Adquira mais créditos

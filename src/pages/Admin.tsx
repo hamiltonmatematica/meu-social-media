@@ -213,7 +213,7 @@ export default function Admin() {
   return (
     <div className="bg-[#0A0A0B] text-slate-100 min-h-screen font-sans">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-white/10 bg-black/50 backdrop-blur-md px-6 py-4 sticky top-0 z-50">
+      <header className="flex flex-wrap items-center justify-between border-b border-white/10 bg-black/50 backdrop-blur-md px-4 md:px-6 py-4 sticky top-0 z-50 gap-4">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate('/')} className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-colors">
             <ArrowLeft className="w-5 h-5 text-slate-300" />
@@ -250,7 +250,7 @@ export default function Admin() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-6 space-y-8">
+      <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-8">
         {activeTab === 'users' ? (
           <>
             {/* Stats Cards */}

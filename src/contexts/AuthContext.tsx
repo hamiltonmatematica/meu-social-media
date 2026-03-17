@@ -78,10 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: user.id,
         email: user.email,
         name: user.user_metadata?.name || user.email?.split('@')[0] || 'Usuário',
-        credits: 2, // 2 créditos grátis no início
+        credits: 5, // 5 créditos grátis no início
         created_at: new Date().toISOString(),
       });
-      setUserCredits(2);
+      setUserCredits(5);
     } else {
       fetchCredits();
     }

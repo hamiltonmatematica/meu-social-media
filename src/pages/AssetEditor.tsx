@@ -914,7 +914,7 @@ export default function AssetEditor() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-2xl bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-12 text-center shadow-2xl"
+          className="w-full max-w-2xl bg-slate-900/50 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-6 md:p-12 text-center shadow-2xl"
         >
           <div className="w-24 h-24 bg-indigo-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-xl shadow-indigo-500/20">
             <Check className="w-12 h-12 text-white" />
@@ -950,7 +950,7 @@ export default function AssetEditor() {
                 {isDownloadingAll ? 'Baixando...' : `Baixar Todas (${mockSlides.length})`}
               </button>
             </div>
-            <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               {mockSlides.map((slide, idx) => (
                 <div key={idx} className="group relative aspect-[4/5] rounded-xl overflow-hidden border border-white/10">
                   <img src={slide.imagem} className="w-full h-full object-cover" alt={`Slide ${idx+1}`} />
@@ -999,7 +999,7 @@ export default function AssetEditor() {
     <div className="bg-[#0A0A0B] text-slate-100 min-h-screen font-sans flex flex-col overflow-hidden selection:bg-blue-500/30">
       
       {/* Header Premium */}
-      <header className="flex items-center justify-between border-b border-white/10 bg-black/50 backdrop-blur-md px-6 py-4 shrink-0">
+      <header className="flex flex-wrap items-center justify-between border-b border-white/10 bg-black/50 backdrop-blur-md px-6 py-4 shrink-0 gap-4">
         <div className="flex items-center gap-4">
           <button 
             onClick={() => navigate(-1)} 
