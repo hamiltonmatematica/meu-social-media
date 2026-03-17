@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Sparkles, Loader2, ArrowRight, LayoutTemplate, Image as ImageIcon, MessageSquare, ExternalLink, Globe, CheckCircle2, ArrowLeft, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,6 +20,15 @@ export default function CreatePost() {
   const [isSearching, setIsSearching] = useState(false);
   const [researchData, setResearchData] = useState<any>(null);
   const [step, setStep] = useState(1); 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Ao receber topic externo (via radar), re-ajusta a altura do textarea
+  useEffect(() => {
+    if (textareaRef.current && topic) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 200) + 'px';
+    }
+  }, [topic]);
 
   useEffect(() => {
     if (searchParams.get('topic')) {
@@ -87,30 +96,30 @@ export default function CreatePost() {
       
       <BillingModal isOpen={showBillingModal} onClose={() => setShowBillingModal(false)} />
 
-      {/* Header Premium */}
-      <header className="flex items-center justify-between border-b border-white/10 bg-black/50 backdrop-blur-md px-6 py-4 sticky top-0 z-50">
-        <div className="flex items-center gap-4">
+      {/* Header Mobile Otimizado */}
+      <header className="flex items-center justify-between border-b border-white/10 bg-black/50 backdrop-blur-md px-4 py-3 sticky top-0 z-50 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <button 
             onClick={() => navigate(-1)} 
-            className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-colors"
+            className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-colors shrink-0"
             title="Voltar"
           >
             <ArrowLeft className="w-5 h-5 text-slate-300" />
           </button>
           <Link 
             to="/" 
-            className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-colors"
+            className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-colors shrink-0"
             title="Página Inicial"
           >
             <Home className="w-5 h-5 text-slate-300" />
           </Link>
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg shadow-blue-500/20">
-              <Sparkles className="w-5 h-5 text-white" />
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-lg shadow-blue-500/20 shrink-0">
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <div>
-              <h2 className="text-white text-lg font-bold tracking-tight">Criação com IA Engine</h2>
-              <p className="text-slate-400 text-xs font-medium">Motor de Pesquisa em Tempo Real</p>
+            <div className="min-w-0">
+              <h2 className="text-white text-sm font-bold tracking-tight truncate">Criação IA Engine</h2>
+              <p className="text-slate-400 text-[10px] font-medium hidden sm:block">Motor de Pesquisa em Tempo Real</p>
             </div>
           </div>
         </div>
@@ -118,12 +127,12 @@ export default function CreatePost() {
         {/* Créditos Display */}
         <div 
           onClick={() => setShowBillingModal(true)}
-          className="flex items-center gap-2 bg-slate-800/50 hover:bg-slate-800 border border-white/10 px-4 py-2 rounded-xl cursor-pointer transition-colors"
+          className="flex items-center gap-1.5 bg-slate-800/50 hover:bg-slate-800 border border-white/10 px-3 py-2 rounded-xl cursor-pointer transition-colors shrink-0"
           title="Clique para adicionar mais créditos"
         >
           <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
           <span className="text-sm font-bold text-white">{userCredits}</span>
-          <span className="text-xs font-medium text-slate-400">créditos</span>
+          <span className="text-xs font-medium text-slate-400 hidden sm:inline">créditos</span>
         </div>
       </header>
 
@@ -160,6 +169,7 @@ export default function CreatePost() {
                   <div className="flex items-start p-2 pt-4 px-6">
                     <Search className="w-6 h-6 text-slate-500 hidden md:block mt-4" />
                     <textarea
+                      ref={textareaRef}
                       value={topic}
                       onChange={(e) => setTopic(e.target.value)}
                       onKeyDown={(e) => {
@@ -174,56 +184,57 @@ export default function CreatePost() {
                         el.style.height = Math.min(el.scrollHeight, 200) + 'px';
                       }}
                       placeholder="Sobre o que vamos criar hoje?"
-                      className="w-full bg-transparent border-none text-white px-4 py-4 focus:outline-none focus:ring-0 text-xl md:text-2xl placeholder:text-slate-700 font-medium resize-none overflow-hidden"
+                      className="w-full bg-transparent border-none text-white px-4 py-4 focus:outline-none focus:ring-0 text-lg md:text-2xl placeholder:text-slate-700 font-medium resize-none overflow-hidden"
                       rows={1}
                       autoFocus
                     />
                   </div>
                   
-                  {/* Linha 2: Controles de Configuração */}
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 md:p-6 bg-black/30 border-t border-white/5">
-                    <div className="flex items-center gap-3 w-full md:w-auto">
-                      <div className="flex flex-col gap-1.5 flex-1 md:flex-none">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tom de Voz</label>
-                        <select
-                          value={selectedTone}
-                          onChange={(e) => setSelectedTone(e.target.value)}
-                          className="bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-indigo-500 text-sm cursor-pointer outline-none hover:bg-slate-800 transition-colors"
-                        >
-                          <option value="informativo">📊 Informativo</option>
-                          <option value="pessoal">✍️ Primeira Pessoa</option>
-                          <option value="agressivo">🔥 Agressivo</option>
-                        </select>
-                      </div>
-
-                      <div className="flex flex-col gap-1.5 flex-1 md:flex-none">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Estilo do Texto</label>
-                        <select
-                          value={selectedDensity}
-                          onChange={(e) => setSelectedDensity(e.target.value)}
-                          className="bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-indigo-500 text-sm cursor-pointer outline-none hover:bg-slate-800 transition-colors"
-                        >
-                          <option value="objetivo">🎯 Objetivo</option>
-                          <option value="denso">📚 Denso</option>
-                        </select>
-                      </div>
-
-                      <div className="flex flex-col gap-1.5 flex-1 md:flex-none">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Extensão</label>
-                        <select
-                          value={numSlides}
-                          onChange={(e) => setNumSlides(Number(e.target.value))}
-                          className="bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-indigo-500 text-sm cursor-pointer outline-none hover:bg-slate-800 transition-colors"
-                        >
-                          {[3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n} Lâminas</option>)}
-                        </select>
-                      </div>
+                  {/* Linha 2: Controles em grid para mobile */}
+                  <div className="grid grid-cols-3 gap-2 p-3 md:p-6 bg-black/30 border-t border-white/5">
+                    <div className="flex flex-col gap-1 flex-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Tom de Voz</label>
+                      <select
+                        value={selectedTone}
+                        onChange={(e) => setSelectedTone(e.target.value)}
+                        className="bg-slate-900 border border-white/10 rounded-xl px-2 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs cursor-pointer outline-none hover:bg-slate-800 transition-colors w-full"
+                      >
+                        <option value="informativo">📊 Info</option>
+                        <option value="pessoal">✍️ Pessoal</option>
+                        <option value="agressivo">🔥 Agressivo</option>
+                      </select>
                     </div>
 
+                    <div className="flex flex-col gap-1 flex-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Estilo</label>
+                      <select
+                        value={selectedDensity}
+                        onChange={(e) => setSelectedDensity(e.target.value)}
+                        className="bg-slate-900 border border-white/10 rounded-xl px-2 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs cursor-pointer outline-none hover:bg-slate-800 transition-colors w-full"
+                      >
+                        <option value="objetivo">🎯 Objetivo</option>
+                        <option value="denso">📚 Denso</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1 flex-1">
+                      <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Extensão</label>
+                      <select
+                        value={numSlides}
+                        onChange={(e) => setNumSlides(Number(e.target.value))}
+                        className="bg-slate-900 border border-white/10 rounded-xl px-2 py-2.5 text-slate-200 focus:outline-none focus:border-indigo-500 text-xs cursor-pointer outline-none hover:bg-slate-800 transition-colors w-full"
+                      >
+                        {[3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n} Lâm.</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Botão de submit separado, ocupa linha inteira */}
+                  <div className="px-3 pb-3 md:px-6 md:pb-6">
                     <button 
                       type="submit"
                       disabled={!topic.trim()}
-                      className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white px-8 py-4 rounded-2xl font-black transition-all flex items-center justify-center gap-3 shadow-lg shadow-indigo-500/20 active:scale-95 text-lg"
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-30 text-white px-8 py-4 rounded-2xl font-black transition-all flex items-center justify-center gap-3 shadow-lg shadow-indigo-500/20 active:scale-95 text-lg"
                     >
                       Gerar Insight <ArrowRight className="w-5 h-5" />
                     </button>

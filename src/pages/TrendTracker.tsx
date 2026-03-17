@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import { ArrowLeft, Sparkles, TrendingUp, Search, PlusCircle, PenTool, CheckCircle2, Clock, Globe, RefreshCw, Home, Edit3, Trash2, Check } from 'lucide-react';
 import { getTrends } from '../lib/ai/research';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -49,16 +50,18 @@ const MOCK_NEWS = {
 
 export default function TrendTracker() {
   const navigate = useNavigate();
-  const [tags, setTags] = useState<string[]>(JSON.parse(localStorage.getItem('trendTags') || '["Marketing Digital", "Inteligência Artificial", "Empreendedorismo"]'));
+  const { user, userRole } = useAuth();
+
+  const DEFAULT_TAGS = ['Marketing Digital', 'Inteligência Artificial', 'Empreendedorismo'];
+
+  const [tags, setTags] = useState<string[]>(DEFAULT_TAGS);
   const [newTag, setNewTag] = useState('');
-  const [activeTag, setActiveTag] = useState(tags[0]);
+  const [activeTag, setActiveTag] = useState(DEFAULT_TAGS[0]);
   const [isScanning, setIsScanning] = useState(false);
   const [newsData, setNewsData] = useState<any>(JSON.parse(localStorage.getItem('trendData') || '{}'));
   const [lastUpdate, setLastUpdate] = useState<any>(JSON.parse(localStorage.getItem('trendUpdates') || '{}'));
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-
-  const { user, userRole } = useAuth();
 
   const ADMIN_EMAILS = [
     import.meta.env.VITE_ADMIN_EMAIL || 'admin@socialflow.ai',
@@ -91,19 +94,40 @@ export default function TrendTracker() {
     }
   }, [activeTag]);
 
-  // Efeito para persistir tags
+  // Carregar tags do Supabase ao logar (sync cruzado entre dispositivos)
   React.useEffect(() => {
-    localStorage.setItem('trendTags', JSON.stringify(tags));
-  }, [tags]);
+    if (!user) return;
+    supabase
+      .from('sm_users')
+      .select('trend_tags')
+      .eq('id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.trend_tags && Array.isArray(data.trend_tags) && data.trend_tags.length > 0) {
+          setTags(data.trend_tags);
+          setActiveTag(data.trend_tags[0]);
+        }
+      });
+  }, [user]);
+
+  // Salvar tags no Supabase sempre que mudarem
+  const saveTags = async (newTags: string[]) => {
+    setTags(newTags);
+    localStorage.setItem('trendTags', JSON.stringify(newTags));
+    if (user) {
+      await supabase.from('sm_users').update({ trend_tags: newTags }).eq('id', user.id);
+    }
+  };
 
   const handleAddTag = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin && tags.length >= 3) {
-      alert("Você atingiu o limite de 3 tópicos monitorados. Remova um para adicionar outro.");
+      alert('Você atingiu o limite de 3 tópicos monitorados. Remova um para adicionar outro.');
       return;
     }
     if (newTag.trim() && !tags.includes(newTag.trim())) {
-      setTags([...tags, newTag.trim()]);
+      const updated = [...tags, newTag.trim()];
+      saveTags(updated);
       setActiveTag(newTag.trim());
       setNewTag('');
     }
@@ -113,7 +137,7 @@ export default function TrendTracker() {
     if (tags.length <= 1) return;
     if (!confirm(`Remover o tópico "${tagToRemove}"?`)) return;
     const newTags = tags.filter(t => t !== tagToRemove);
-    setTags(newTags);
+    saveTags(newTags);
     if (activeTag === tagToRemove) {
       setActiveTag(newTags[0]);
     }
@@ -135,7 +159,7 @@ export default function TrendTracker() {
       return;
     }
     const newTags = tags.map(t => t === editingTag ? editValue.trim() : t);
-    setTags(newTags);
+    saveTags(newTags);
     
     // Migrar dados da tag antiga para a nova
     const newData = { ...newsData };
