@@ -188,7 +188,7 @@ export default function AssetEditor() {
 
     const [mainImg, avatarImg] = await Promise.all([
       loadCanvasImage(slide.imagem),
-      globalStyle === 'twitter' ? loadCanvasImage(twitterAvatar) : Promise.resolve(null)
+      (globalStyle === 'twitter' || globalStyle === 'magazine') ? loadCanvasImage(twitterAvatar) : Promise.resolve(null)
     ]);
 
     // Background Principal
@@ -387,6 +387,158 @@ export default function AssetEditor() {
         const dy = currentY + (availableHeight - h) / 2;
         ctx.drawImage(mainImg, dx, dy, w, h);
         ctx.restore();
+      }
+    } else if (globalStyle === 'magazine') {
+      const isCover = slide.ordem === 1 || slide === mockSlides[0];
+      const paddingX = Math.round(32 * S);
+      const maxW = CANVAS_W - paddingX * 2;
+
+      if (isCover) {
+        // --- CAPA: imagem full-bleed + gradiente + avatar centralizado + título ---
+        // 1. Fundo: imagem
+        if (mainImg) {
+          const sc = Math.max(CANVAS_W / mainImg.width, CANVAS_H / mainImg.height);
+          const w = mainImg.width * sc;
+          const h = mainImg.height * sc;
+          ctx.drawImage(mainImg, (CANVAS_W - w) / 2, (CANVAS_H - h) / 2, w, h);
+        } else {
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        }
+        // 2. Gradiente escuro na metade inferior
+        const grad = ctx.createLinearGradient(0, CANVAS_H * 0.3, 0, CANVAS_H);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(0.4, 'rgba(0,0,0,0.6)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.97)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+        // 3. Bloco inferior: avatar + handle + título + subtexto
+        const bottomPad = Math.round(80 * S);
+        let curY = CANVAS_H - bottomPad;
+
+        // Calcular alturas de texto (de baixo pra cima)
+        const subtextFontSize = Math.round(16 * S);
+        ctx.font = `400 ${subtextFontSize}px Inter, sans-serif`;
+        const subLines = wrapText(ctx, slide.texto || '', maxW);
+        const subH = subLines.length * Math.round(subtextFontSize * 1.5);
+
+        const titleFontSize = Math.round(44 * S);
+        ctx.font = `900 ${titleFontSize}px Inter, sans-serif`;
+        const titleLines = wrapText(ctx, slide.titulo || '', maxW);
+        const titleH = titleLines.length * Math.round(titleFontSize * 1.2);
+
+        const avatarBlockH = Math.round(52 * S);
+        const gapAvatarTitle = Math.round(24 * S);
+        const gapTitleSub = Math.round(20 * S);
+
+        const totalH = avatarBlockH + gapAvatarTitle + titleH + (subLines.length > 0 ? gapTitleSub + subH : 0);
+        curY = CANVAS_H - bottomPad - totalH;
+
+        // Avatar + handle (centralizados)
+        const avatarSize = Math.round(44 * S);
+        const avatarX = (CANVAS_W - avatarSize) / 2;
+        if (avatarImg) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(avatarX + avatarSize / 2, curY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(avatarImg, avatarX, curY, avatarSize, avatarSize);
+          ctx.restore();
+        } else {
+          // Círculo placeholder laranja
+          ctx.fillStyle = '#ea580c';
+          ctx.beginPath();
+          ctx.arc(avatarX + avatarSize / 2, curY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Handle ao lado do avatar
+        const handleFontSize = Math.round(15 * S);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `700 ${handleFontSize}px Inter, sans-serif`;
+        ctx.fillText(twitterHandle || '@seuarroba', CANVAS_W / 2, curY + avatarSize / 2 + Math.round(handleFontSize * 0.35));
+        // Reposicionar handle para ficar ao lado direito do avatar
+        ctx.textAlign = 'left';
+        const handleTextX = CANVAS_W / 2 + Math.round(avatarSize * 0.6);
+        ctx.fillText(twitterHandle || '@seuarroba', handleTextX, curY + avatarSize / 2 + Math.round(handleFontSize * 0.35));
+        ctx.textAlign = 'center';
+
+        curY += avatarBlockH + gapAvatarTitle;
+
+        // Título
+        ctx.fillStyle = titleColor;
+        ctx.font = `900 ${titleFontSize}px Inter, sans-serif`;
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 12;
+        const titleLH = Math.round(titleFontSize * 1.2);
+        titleLines.forEach((line, i) => ctx.fillText(line, CANVAS_W / 2, curY + titleFontSize + i * titleLH));
+        curY += titleH + gapTitleSub;
+        ctx.shadowBlur = 0;
+
+        // Subtexto
+        if (subLines.length > 0) {
+          ctx.fillStyle = textColor;
+          ctx.font = `400 ${subtextFontSize}px Inter, sans-serif`;
+          const subLH = Math.round(subtextFontSize * 1.5);
+          subLines.forEach((line, i) => { if (line) ctx.fillText(line, CANVAS_W / 2, curY + subtextFontSize + i * subLH); });
+        }
+
+      } else {
+        // --- LÂMINAS 2+: fundo colorido + texto + imagem horizontal + texto ---
+        const bgColor = slide.bgColor || '#ffffff';
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+        const isDark = bgColor === '#000000' || bgColor === '#1a1a2e';
+        const textMainColor = isDark ? titleColor : '#111111';
+        const textSecColor = isDark ? textColor : '#333333';
+
+        const topPad = Math.round(48 * S);
+        const imageH = Math.round(CANVAS_H * 0.38); // imagem ocupa ~38% da altura
+        const imgY = Math.round(CANVAS_H * 0.35); // posicionada a 35% do topo
+        const imgRadius = Math.round(16 * S);
+
+        // Texto principal ACIMA da imagem
+        const tFontSize = Math.round(32 * S);
+        ctx.font = `900 ${tFontSize}px Inter, sans-serif`;
+        ctx.fillStyle = textMainColor;
+        ctx.textAlign = 'left';
+        const tLines = wrapText(ctx, slide.titulo || '', maxW);
+        const tLH = Math.round(tFontSize * 1.2);
+        tLines.forEach((line, i) => ctx.fillText(line, paddingX, topPad + tFontSize + i * tLH));
+
+        // Imagem horizontal centralizada
+        if (mainImg) {
+          ctx.save();
+          // Rounded rect clip
+          ctx.beginPath();
+          ctx.moveTo(paddingX + imgRadius, imgY);
+          ctx.lineTo(paddingX + maxW - imgRadius, imgY);
+          ctx.quadraticCurveTo(paddingX + maxW, imgY, paddingX + maxW, imgY + imgRadius);
+          ctx.lineTo(paddingX + maxW, imgY + imageH - imgRadius);
+          ctx.quadraticCurveTo(paddingX + maxW, imgY + imageH, paddingX + maxW - imgRadius, imgY + imageH);
+          ctx.lineTo(paddingX + imgRadius, imgY + imageH);
+          ctx.quadraticCurveTo(paddingX, imgY + imageH, paddingX, imgY + imageH - imgRadius);
+          ctx.lineTo(paddingX, imgY + imgRadius);
+          ctx.quadraticCurveTo(paddingX, imgY, paddingX + imgRadius, imgY);
+          ctx.closePath();
+          ctx.clip();
+          const sc = Math.max(maxW / mainImg.width, imageH / mainImg.height);
+          const w2 = mainImg.width * sc;
+          const h2 = mainImg.height * sc;
+          ctx.drawImage(mainImg, paddingX + (maxW - w2) / 2, imgY + (imageH - h2) / 2, w2, h2);
+          ctx.restore();
+        }
+
+        // Texto de apoio ABAIXO da imagem
+        const bodyY = imgY + imageH + Math.round(28 * S);
+        const bFontSize = Math.round(20 * S);
+        ctx.font = `500 ${bFontSize}px Inter, sans-serif`;
+        ctx.fillStyle = textSecColor;
+        const bLines = wrapText(ctx, slide.texto || '', maxW);
+        const bLH = Math.round(bFontSize * 1.55);
+        bLines.forEach((line, i) => { if (line) ctx.fillText(line, paddingX, bodyY + bFontSize + i * bLH); });
       }
     }
 
@@ -1239,25 +1391,25 @@ export default function AssetEditor() {
                         <img src={mockSlides[0].imagem} alt="Capa" className="absolute inset-0 w-full h-full object-cover" />
                         {/* Gradiente na metade inferior */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
-                        {/* Avatar + @handle no canto superior esquerdo */}
-                        <div className="absolute top-5 left-5 flex items-center gap-2 z-10">
-                          {twitterAvatar ? (
-                            <img src={twitterAvatar} alt="Avatar" className="w-9 h-9 rounded-full border-2 border-white object-cover" />
-                          ) : (
-                            <div className="w-9 h-9 rounded-full bg-white/20 border-2 border-white flex items-center justify-center">
-                              <Camera className="w-3 h-3 text-white" />
-                            </div>
-                          )}
-                          <span className="text-white text-sm font-bold drop-shadow">{twitterHandle || '@seuarroba'}</span>
-                        </div>
-                        {/* Título grande na parte de baixo */}
-                        <div className={`absolute bottom-0 inset-x-0 px-6 pb-8 ${mockSlides[0].alinhamento || 'text-left'}`}>
-                          <h1 className={`text-3xl font-black leading-tight mb-3 ${currentFont} ${textBold ? 'font-black' : ''} ${textUppercase ? 'uppercase' : ''}`}
+                        {/* Título grande e avatar centralizados na parte inferior */}
+                        <div className={`absolute bottom-0 inset-x-0 px-6 pb-8 ${mockSlides[0].alinhamento || 'text-center'}`}>
+                          {/* Avatar + @handle acima do título */}
+                          <div className="flex items-center justify-center gap-2 mb-4">
+                            {twitterAvatar ? (
+                              <img src={twitterAvatar} alt="Avatar" className="w-9 h-9 rounded-full border-2 border-white object-cover shrink-0" />
+                            ) : (
+                              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-red-600 border-2 border-white flex items-center justify-center shrink-0">
+                                <Sparkles className="w-4 h-4 text-white" />
+                              </div>
+                            )}
+                            <span className="text-white text-sm font-bold drop-shadow">{twitterHandle || '@seuarroba'}</span>
+                          </div>
+                          <h1 className={`text-3xl font-black leading-tight mb-3 text-center ${currentFont} ${textBold ? 'font-black' : ''} ${textUppercase ? 'uppercase' : ''}`}
                             style={{ color: titleColor }}>
                             {mockSlides[0].titulo}
                           </h1>
                           {mockSlides[0].texto && (
-                            <p className={`text-sm leading-snug ${textBold ? 'font-bold' : ''} ${textUppercase ? 'uppercase' : ''}`}
+                            <p className={`text-sm leading-snug text-center ${textBold ? 'font-bold' : ''} ${textUppercase ? 'uppercase' : ''}`}
                               style={{ color: textColor }}>
                               {mockSlides[0].texto}
                             </p>
