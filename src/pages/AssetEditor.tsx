@@ -37,11 +37,11 @@ export default function AssetEditor() {
     titulo: s.titulo,
     texto: s.texto,
     image_prompt: s.image_prompt,
-    // SE já existir uma imagem vinda do banco (s.imagem), usa ela. Senão, fallback inicial.
     imagem: s.imagem || `https://images.unsplash.com/photo-${1600000000000 + (idx * 1234567)}?q=80&w=1080&auto=format&fit=crop`, 
     alinhamento: s.alinhamento || "text-center",
-    ai_generated: false
-  })) || MOCK_SLIDES.map(s => ({ ...s, ai_generated: false }));
+    ai_generated: false,
+    bgColor: s.bgColor || '#ffffff'
+  })) || MOCK_SLIDES.map(s => ({ ...s, ai_generated: false, bgColor: '#ffffff' }));
 
   const initialCaption = incomingData?.legenda_instagram_facebook || MOCK_LEGENDA;
 
@@ -59,11 +59,14 @@ export default function AssetEditor() {
   const [isSearchingPhotos, setIsSearchingPhotos] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   
-  // Novos Estilos de Layout
-  const [globalStyle, setGlobalStyle] = useState<'classic' | 'centered' | 'twitter'>(incomingData?.globalStyle || 'classic');
+  // Estilos de Layout
+  const [globalStyle, setGlobalStyle] = useState<'classic' | 'centered' | 'twitter' | 'magazine'>(incomingData?.globalStyle || 'classic');
   const [twitterName, setTwitterName] = useState(incomingData?.twitterName || '');
   const [twitterHandle, setTwitterHandle] = useState(incomingData?.twitterHandle || '');
   const [twitterAvatar, setTwitterAvatar] = useState(incomingData?.twitterAvatar || '');
+  // Tipografia e destaques
+  const [textBold, setTextBold] = useState(false);
+  const [textUppercase, setTextUppercase] = useState(false);
   
   // Crop & Past Avatars State
   const [pastAvatars, setPastAvatars] = useState<string[]>([]);
@@ -1126,8 +1129,19 @@ export default function AssetEditor() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.3 }}
-                className={`absolute inset-0 bg-cover bg-center ${globalStyle === 'twitter' ? 'bg-white' : ''}`}
-                style={{ backgroundImage: globalStyle === 'twitter' ? 'none' : `url('${mockSlides[currentSlide].imagem}')` }}
+                className={`absolute inset-0 bg-cover bg-center ${
+                  globalStyle === 'twitter' || globalStyle === 'magazine' ? '' : ''
+                }`}
+                style={{
+                  backgroundImage: (globalStyle === 'twitter' || (globalStyle === 'magazine' && currentSlide !== 0)) 
+                    ? 'none' 
+                    : `url('${mockSlides[currentSlide].imagem}')`,
+                  backgroundColor: globalStyle === 'magazine' && currentSlide !== 0
+                    ? (mockSlides[currentSlide].bgColor || '#ffffff')
+                    : globalStyle === 'twitter'
+                    ? (mockSlides[currentSlide].bgColor || '#ffffff')
+                    : 'transparent'
+                }}
               >
                 {/* Overlay Escuro para os modos Classic e Centered */}
                 {(globalStyle === 'classic' || globalStyle === 'centered') && (
@@ -1142,13 +1156,13 @@ export default function AssetEditor() {
                 {globalStyle === 'classic' && (
                   <div className={`absolute inset-x-8 bottom-12 flex flex-col justify-end ${mockSlides[currentSlide].alinhamento || 'text-left'}`}>
                     <h3 
-                      className={`text-3xl md:text-3xl font-extrabold leading-tight mb-3 ${currentFont}`}
+                      className={`text-3xl font-extrabold leading-tight mb-3 ${currentFont} ${textBold ? 'font-black' : ''} ${textUppercase ? 'uppercase' : ''}`}
                       style={{ color: titleColor }}
                     >
                       {mockSlides[currentSlide].titulo}
                     </h3>
                     <p 
-                      className="text-sm md:text-sm leading-relaxed"
+                      className={`text-sm leading-relaxed ${textBold ? 'font-bold' : ''} ${textUppercase ? 'uppercase' : ''}`}
                       style={{ color: textColor }}
                     >
                       {mockSlides[currentSlide].texto}
@@ -1161,13 +1175,13 @@ export default function AssetEditor() {
                   <div className={`absolute inset-x-8 inset-y-0 flex flex-col justify-center overflow-y-auto custom-scrollbar pb-8 pt-8 ${mockSlides[currentSlide].alinhamento || 'text-center'}`}>
                     <div className="my-auto flex flex-col">
                       <h3 
-                        className={`text-2xl md:text-3xl font-extrabold leading-tight mb-4 drop-shadow-lg shrink-0 ${currentFont}`}
+                        className={`text-2xl md:text-3xl font-extrabold leading-tight mb-4 drop-shadow-lg shrink-0 ${currentFont} ${textBold ? 'font-black' : ''} ${textUppercase ? 'uppercase' : ''}`}
                         style={{ color: titleColor }}
                       >
                         {mockSlides[currentSlide].titulo}
                       </h3>
                       <p 
-                        className="text-sm md:text-sm leading-relaxed bg-black/30 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 shrink-0"
+                        className={`text-sm leading-relaxed bg-black/30 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 shrink-0 ${textBold ? 'font-bold' : ''} ${textUppercase ? 'uppercase' : ''}`}
                         style={{ color: textColor }}
                       >
                         {mockSlides[currentSlide].texto}
@@ -1178,7 +1192,7 @@ export default function AssetEditor() {
 
                 {/* Textos: MODO TWITTER */}
                 {globalStyle === 'twitter' && (
-                  <div className="absolute inset-0 flex flex-col p-6 bg-white overflow-hidden text-left">
+                  <div className="absolute inset-0 flex flex-col p-6 overflow-hidden text-left" style={{ backgroundColor: mockSlides[currentSlide].bgColor || '#ffffff' }}>
                     {/* Header: Avatar, Name e Handle */}
                     <div className="flex items-center gap-3 mb-4 mt-6 z-10 w-full shrink-0">
                       {twitterAvatar ? (
@@ -1197,11 +1211,11 @@ export default function AssetEditor() {
                     {/* Texto Body */}
                     <div className={`z-10 flex flex-col mb-4 shrink-0 ${mockSlides[currentSlide].alinhamento || 'text-left'}`}>
                       {mockSlides[currentSlide].titulo && (
-                        <h3 className={`text-[15px] text-gray-900 mb-1 leading-snug whitespace-pre-wrap ${currentFont}`}>
+                        <h3 className={`text-[15px] text-gray-900 mb-1 leading-snug whitespace-pre-wrap ${currentFont} ${textBold ? 'font-bold' : ''} ${textUppercase ? 'uppercase' : ''}`}>
                           {mockSlides[currentSlide].titulo}
                         </h3>
                       )}
-                      <p className={`text-[15px] text-gray-900 leading-snug whitespace-pre-wrap ${currentFont}`}>
+                      <p className={`text-[15px] text-gray-900 leading-snug whitespace-pre-wrap ${currentFont} ${textBold ? 'font-bold' : ''} ${textUppercase ? 'uppercase' : ''}`}>
                         {mockSlides[currentSlide].texto}
                       </p>
                     </div>
@@ -1213,6 +1227,69 @@ export default function AssetEditor() {
                       </div>
                     )}
                   </div>
+                )}
+
+                {/* MODO MAGAZINE */}
+                {globalStyle === 'magazine' && (
+                  <>
+                    {/* CAPA (slide 0): imagem full-bleed + avatar + título grande */}
+                    {currentSlide === 0 ? (
+                      <div className="absolute inset-0">
+                        {/* Fundo: imagem */}
+                        <img src={mockSlides[0].imagem} alt="Capa" className="absolute inset-0 w-full h-full object-cover" />
+                        {/* Gradiente na metade inferior */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-transparent" />
+                        {/* Avatar + @handle no canto superior esquerdo */}
+                        <div className="absolute top-5 left-5 flex items-center gap-2 z-10">
+                          {twitterAvatar ? (
+                            <img src={twitterAvatar} alt="Avatar" className="w-9 h-9 rounded-full border-2 border-white object-cover" />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-white/20 border-2 border-white flex items-center justify-center">
+                              <Camera className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                          <span className="text-white text-sm font-bold drop-shadow">{twitterHandle || '@seuarroba'}</span>
+                        </div>
+                        {/* Título grande na parte de baixo */}
+                        <div className={`absolute bottom-0 inset-x-0 px-6 pb-8 ${mockSlides[0].alinhamento || 'text-left'}`}>
+                          <h1 className={`text-3xl font-black leading-tight mb-3 ${currentFont} ${textBold ? 'font-black' : ''} ${textUppercase ? 'uppercase' : ''}`}
+                            style={{ color: titleColor }}>
+                            {mockSlides[0].titulo}
+                          </h1>
+                          {mockSlides[0].texto && (
+                            <p className={`text-sm leading-snug ${textBold ? 'font-bold' : ''} ${textUppercase ? 'uppercase' : ''}`}
+                              style={{ color: textColor }}>
+                              {mockSlides[0].texto}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      /* LÂMINAS 2+: fundo de cor + texto em cima + imagem horizontal central + texto abaixo */
+                      <div className="absolute inset-0 flex flex-col p-5 overflow-hidden" style={{ backgroundColor: mockSlides[currentSlide].bgColor || '#ffffff' }}>
+                        {/* Texto principal acima */}
+                        <div className={`mb-3 ${mockSlides[currentSlide].alinhamento || 'text-left'}`}>
+                          <h2 className={`text-xl font-black leading-tight text-gray-900 ${currentFont} ${textBold ? 'font-black' : ''} ${textUppercase ? 'uppercase' : ''}`}
+                            style={{ color: mockSlides[currentSlide].bgColor === '#000000' ? titleColor : '#111111' }}>
+                            {mockSlides[currentSlide].titulo}
+                          </h2>
+                        </div>
+                        {/* Imagem horizontal no centro */}
+                        {mockSlides[currentSlide].imagem && (
+                          <div className="rounded-xl overflow-hidden shrink-0 mb-3" style={{ height: '40%' }}>
+                            <img src={mockSlides[currentSlide].imagem} alt="Magazine" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        {/* Texto de apoio abaixo da imagem */}
+                        <div className={`flex-1 overflow-hidden ${mockSlides[currentSlide].alinhamento || 'text-left'}`}>
+                          <p className={`text-sm leading-snug font-medium ${textBold ? 'font-bold' : ''} ${textUppercase ? 'uppercase' : ''}`}
+                            style={{ color: mockSlides[currentSlide].bgColor === '#000000' ? textColor : '#333333' }}>
+                            {mockSlides[currentSlide].texto}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </motion.div>
             </AnimatePresence>
@@ -1339,7 +1416,7 @@ export default function AssetEditor() {
             <div className="mb-6 p-4 bg-black/50 rounded-xl border border-white/5 space-y-4">
               <div>
                 <label className="text-[11px] font-bold text-slate-400 mb-2 block uppercase tracking-wider">Layout do Post</label>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button 
                     onClick={() => setGlobalStyle('classic')} 
                     className={`flex-1 py-1.5 text-xs rounded-lg border transition-all ${globalStyle === 'classic' ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}
@@ -1358,10 +1435,16 @@ export default function AssetEditor() {
                   >
                     Twitter
                   </button>
+                  <button 
+                    onClick={() => setGlobalStyle('magazine')} 
+                    className={`flex-1 py-1.5 text-xs rounded-lg border transition-all ${globalStyle === 'magazine' ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}
+                  >
+                    📖 Magazine
+                  </button>
                 </div>
               </div>
 
-              {globalStyle === 'twitter' && (
+              {(globalStyle === 'twitter' || globalStyle === 'magazine') && (
                 <div className="space-y-3 pt-2">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -1396,7 +1479,6 @@ export default function AssetEditor() {
                       />
                     </label>
 
-                    {/* Exibe fotos passadas se houver */}
                     {pastAvatars.length > 0 && (
                       <div className="mt-3">
                         <label className="text-[9px] text-slate-500 font-bold uppercase mb-1.5 block">Recentes</label>
@@ -1414,12 +1496,43 @@ export default function AssetEditor() {
                       </div>
                     )}
                   </div>
+
+                  {/* Cor de Fundo desta Lâmina */}
+                  <div>
+                    <label className="text-[10px] text-indigo-400 mb-1 block">Cor de Fundo desta Lâmina</label>
+                    <div className="flex items-center gap-2 bg-black/40 p-2 rounded-lg border border-white/10">
+                      <input 
+                        type="color" 
+                        value={mockSlides[currentSlide].bgColor || '#ffffff'} 
+                        onChange={(e) => {
+                          const updated = [...mockSlides];
+                          updated[currentSlide] = { ...updated[currentSlide], bgColor: e.target.value };
+                          setMockSlides(updated);
+                        }}
+                        className="w-8 h-8 rounded cursor-pointer border-none bg-transparent"
+                      />
+                      <span className="text-xs text-slate-400 font-mono">{mockSlides[currentSlide].bgColor || '#ffffff'}</span>
+                      <div className="flex gap-1 ml-auto">
+                        {['#ffffff','#000000','#1a1a2e','#f0f4ff','#fff8e7','#e8f5e9','#fce4ec'].map(c => (
+                          <button key={c} onClick={() => {
+                            const updated = [...mockSlides];
+                            updated[currentSlide] = { ...updated[currentSlide], bgColor: c };
+                            setMockSlides(updated);
+                          }}
+                            className="w-5 h-5 rounded-full border border-white/20 hover:scale-110 transition-transform"
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              {/* Controles de Tipografia com Negrito e Maiúsculo */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-slate-400 mb-1 block">Alinhamento</label>
                   <div className="flex gap-2">
@@ -1445,19 +1558,40 @@ export default function AssetEditor() {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-400 mb-1 block">Tipografia do Título</label>
-                  <select 
-                    className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
-                    value={currentFont}
-                    onChange={(e) => setCurrentFont(e.target.value)}
-                  >
-                    <option value="font-sans">Inter</option>
-                    <option value="font-serif">Playfair</option>
-                    <option value="font-mono">JetBrains</option>
-                  </select>
+                  <label className="text-xs text-slate-400 mb-1 block">Estilo do Texto</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setTextBold(b => !b)}
+                      title="Negrito"
+                      className={`flex-1 py-2 rounded-lg border font-black text-sm transition-all ${textBold ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-black/50 border-white/10 text-slate-400 hover:text-white'}`}
+                    >
+                      B
+                    </button>
+                    <button
+                      onClick={() => setTextUppercase(u => !u)}
+                      title="Maiúsculo"
+                      className={`flex-1 py-2 rounded-lg border font-black text-xs transition-all ${textUppercase ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-black/50 border-white/10 text-slate-400 hover:text-white'}`}
+                    >
+                      AA
+                    </button>
+                  </div>
                 </div>
+              </div> {/* Closes grid grid-cols-2 gap-3 for alignment and style */}
 
-                <div className="pt-2">
+              <div> {/* New div for Tipografia do Título to be a separate block */}
+                <label className="text-xs text-slate-400 mb-1 block">Tipografia do Título</label>
+                <select 
+                  className="w-full bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+                  value={currentFont}
+                  onChange={(e) => setCurrentFont(e.target.value)}
+                >
+                  <option value="font-sans">Inter</option>
+                  <option value="font-serif">Playfair</option>
+                  <option value="font-mono">JetBrains</option>
+                </select>
+              </div>
+
+              <div className="pt-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
                     <Palette className="w-3 h-3" /> Cores do Design
                   </label>
