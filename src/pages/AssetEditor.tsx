@@ -1634,15 +1634,24 @@ export default function AssetEditor() {
                     {pastAvatars.length > 0 && (
                       <div className="mt-3">
                         <label className="text-[9px] text-slate-500 font-bold uppercase mb-1.5 block">Recentes</label>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           {pastAvatars.map((url, i) => (
-                            <button 
-                              key={i} 
-                              onClick={() => setTwitterAvatar(url)}
-                              className="w-8 h-8 rounded-full border border-white/10 overflow-hidden hover:border-indigo-500 transition-all opacity-80 hover:opacity-100"
-                            >
-                              <img src={url} alt="Recent avatar" className="w-full h-full object-cover" />
-                            </button>
+                            <div key={i} className="relative group">
+                              <button 
+                                onClick={() => setTwitterAvatar(url)}
+                                className="w-9 h-9 rounded-full border border-white/10 overflow-hidden hover:border-indigo-500 transition-all opacity-80 hover:opacity-100 block"
+                              >
+                                <img src={url} alt="Recent avatar" className="w-full h-full object-cover" />
+                              </button>
+                              {/* Botão excluir — aparece no hover */}
+                              <button
+                                onClick={() => setPastAvatars(prev => prev.filter((_, idx) => idx !== i))}
+                                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                                title="Excluir foto"
+                              >
+                                ×
+                              </button>
+                            </div>
                           ))}
                         </div>
                       </div>
