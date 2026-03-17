@@ -441,19 +441,17 @@ export default function AssetEditor() {
         }
       }
 
-      // Fallback clássico para PC: baixa sequencialmente
+      // Fallback clássico para PC: baixa sequencialmente sincronamente
       blobs.forEach((blob, i) => {
-        setTimeout(() => {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.style.display = 'none';
-          a.href = url;
-          a.download = `slide-${i + 1}.png`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }, i * 300);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `slide-${i + 1}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
       });
     } catch (err) {
       console.error('Erro ao baixar slides:', err);
