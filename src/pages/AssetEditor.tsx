@@ -1314,7 +1314,7 @@ export default function AssetEditor() {
                       {mockSlides[currentSlide].titulo}
                     </h3>
                     <p 
-                      className={`text-sm leading-relaxed ${textBold ? 'font-bold' : ''} ${textUppercase ? 'uppercase' : ''}`}
+                     className="text-sm leading-relaxed"
                       style={{ color: textColor }}
                     >
                       {mockSlides[currentSlide].texto}
@@ -1333,7 +1333,7 @@ export default function AssetEditor() {
                         {mockSlides[currentSlide].titulo}
                       </h3>
                       <p 
-                        className={`text-sm leading-relaxed bg-black/30 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 shrink-0 ${textBold ? 'font-bold' : ''} ${textUppercase ? 'uppercase' : ''}`}
+                        className="text-sm leading-relaxed bg-black/30 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 shrink-0"
                         style={{ color: textColor }}
                       >
                         {mockSlides[currentSlide].texto}
@@ -1367,7 +1367,7 @@ export default function AssetEditor() {
                           {mockSlides[currentSlide].titulo}
                         </h3>
                       )}
-                      <p className={`text-[15px] text-gray-900 leading-snug whitespace-pre-wrap ${currentFont} ${textBold ? 'font-bold' : ''} ${textUppercase ? 'uppercase' : ''}`}>
+                      <p className={`text-[15px] text-gray-900 leading-snug whitespace-pre-wrap ${currentFont}`}>
                         {mockSlides[currentSlide].texto}
                       </p>
                     </div>
@@ -1409,7 +1409,7 @@ export default function AssetEditor() {
                             {mockSlides[0].titulo}
                           </h1>
                           {mockSlides[0].texto && (
-                            <p className={`text-sm leading-snug text-center ${textBold ? 'font-bold' : ''} ${textUppercase ? 'uppercase' : ''}`}
+                            <p className="text-sm leading-snug text-center"
                               style={{ color: textColor }}>
                               {mockSlides[0].texto}
                             </p>
@@ -1434,7 +1434,7 @@ export default function AssetEditor() {
                         )}
                         {/* Texto de apoio abaixo da imagem */}
                         <div className={`flex-1 overflow-hidden ${mockSlides[currentSlide].alinhamento || 'text-left'}`}>
-                          <p className={`text-sm leading-snug font-medium ${textBold ? 'font-bold' : ''} ${textUppercase ? 'uppercase' : ''}`}
+                          <p className="text-sm leading-snug font-medium"
                             style={{ color: mockSlides[currentSlide].bgColor === '#000000' ? textColor : '#333333' }}>
                             {mockSlides[currentSlide].texto}
                           </p>
