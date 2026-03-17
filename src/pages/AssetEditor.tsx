@@ -58,7 +58,6 @@ export default function AssetEditor() {
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [isSearchingPhotos, setIsSearchingPhotos] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
-  const [downloadModalData, setDownloadModalData] = useState<{ url: string, name: string, blob: Blob }[] | null>(null);
   
   // Novos Estilos de Layout
   const [globalStyle, setGlobalStyle] = useState<'classic' | 'centered' | 'twitter'>(incomingData?.globalStyle || 'classic');
@@ -133,17 +132,14 @@ export default function AssetEditor() {
     try {
       let imgSrc = url;
       
-      // Se for URL externa (não blob nem data:), tenta buscar via CORS 
+      // Se for URL externa (não blob nem data:), converte pra blob pra evitar CORS
       if (!url.startsWith('blob:') && !url.startsWith('data:')) {
         try {
-          const resp = await fetch(imgSrc, { mode: 'cors' });
-          if (!resp.ok) throw new Error('CORS block fetch');
+          const resp = await fetch(url, { mode: 'cors' });
           const blob = await resp.blob();
           imgSrc = URL.createObjectURL(blob);
         } catch {
-          // Fallback: se houver erro CORS no fetch, não podemos carregar a imagem original como url,
-          // porque se ela desenhar no canvas, ele taintará e proibirá o Blob final e travará o app.
-          return null; // A imagem simplesmente não renderiza (fica fundo escuro) mas NAO TRAVA DOWNLOAD!
+          imgSrc = url;
         }
       }
       
@@ -378,48 +374,89 @@ export default function AssetEditor() {
     }
 
     return new Promise((resolve, reject) => {
-      try {
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error('Falha ao gerar blob da imagem.'));
-        }, 'image/png', 1.0);
-      } catch (err) {
-        reject(new Error('O Canvas foi manchado por uma imagem externa e o download foi bloqueado pelo Navegador.'));
-      }
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Falha gerar blob da imagem'));
+      }, 'image/png', 1.0);
     });
   };
 
-  // Abre o Modal com 1 slide para Download/Compartilhamento
+  // Download de um slide individual
   const downloadSlide = async (slide: any, index: number) => {
-    setIsDownloadingAll(true);
     try {
       const blob = await renderSlideToCanvas(slide);
       const fileName = `slide-${index + 1}.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+
+      // No mobile, tenta compartilhar nativamente pra ir pra Galeria
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'Baixar Post',
+          });
+          return; // Se funcionou o share, não precisa baixar via <a>
+        } catch (shareErr) {
+          console.log('Compartilhamento cancelado ou falhou', shareErr);
+        }
+      }
+
+      // Fallback para PC ou se o share falhar no celular (cria o <a> e clica escondido)
       const url = URL.createObjectURL(blob);
-      setDownloadModalData([{ url, name: fileName, blob }]);
-    } catch (err: any) {
-      console.error('Erro ao preparar slide:', err);
-      alert(`Erro ao processar imagem: ${err.message || 'Restrição de segurança do navegador (CORS). Tente usar uma foto sua gerada pela IA em vez de stock.'}`);
-    } finally {
-      setIsDownloadingAll(false);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Erro ao baixar slide:', err);
     }
   };
 
-  // Abre o Modal com todos os slides para Download/Compartilhamento
+  // Download de todas as imagens de uma vez
   const downloadAllSlides = async () => {
     setIsDownloadingAll(true);
     try {
-      const data = [];
+      // Cria um array de arquivos para compartilhar tudo junto no mobile
+      const files: File[] = [];
+      const blobs: Blob[] = [];
       for (let i = 0; i < mockSlides.length; i++) {
         const blob = await renderSlideToCanvas(mockSlides[i]);
-        if (!blob) throw new Error("A imagem falhou ao compilar no Canvas.");
-        const url = URL.createObjectURL(blob);
-        data.push({ url, name: `slide-${i + 1}.png`, blob });
+        blobs.push(blob);
+        files.push(new File([blob], `slide-${i + 1}.png`, { type: 'image/png' }));
       }
-      setDownloadModalData(data);
-    } catch (err: any) {
-      console.error('Erro ao preparar slides:', err);
-      alert(`Ocorreu um erro ao carregar as imagens: ${err.message || 'O navegador bloqueou a cópia da imagem original por segurança. Mude a foto do slide ou tente outra imagem livre.'}`);
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files })) {
+        try {
+          await navigator.share({
+            files,
+            title: 'Baixar Todos os Posts',
+          });
+          setIsDownloadingAll(false);
+          return;
+        } catch (shareErr) {
+          console.log('Compartilhamento múltiplo cancelado', shareErr);
+        }
+      }
+
+      // Fallback clássico para PC: baixa sequencialmente
+      blobs.forEach((blob, i) => {
+        setTimeout(() => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = `slide-${i + 1}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, i * 300);
+      });
+    } catch (err) {
+      console.error('Erro ao baixar slides:', err);
     } finally {
       setIsDownloadingAll(false);
     }
@@ -1800,73 +1837,6 @@ export default function AssetEditor() {
         )}
       </AnimatePresence>
 
-      {/* MODAL DE DOWNLOAD MOBILE-FRIENDLY */}
-      <AnimatePresence>
-        {downloadModalData && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-sm flex flex-col shadow-2xl max-h-[90vh] overflow-hidden"
-            >
-              <div className="p-6 text-center border-b border-white/10 shrink-0">
-                <h3 className="text-xl font-bold text-white mb-2">Pronto para Salvar!</h3>
-                <p className="text-sm text-slate-400">
-                  {navigator.share 
-                    ? "Clique abaixo para Compartilhar/Salvar ou pressione e segure nas imagens para ir para a Galeria."
-                    : "Pressione e segure nas imagens abaixo para salvar na sua Galeria, ou clique em Baixar."}
-                </p>
-              </div>
-              
-              <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-                {downloadModalData.map((item, i) => (
-                  <img key={i} src={item.url} alt={`Slide ${i+1}`} className="w-full rounded-lg border border-white/10 shadow-lg" />
-                ))}
-              </div>
-
-              <div className="p-6 border-t border-white/10 space-y-3 shrink-0 bg-slate-950/50">
-                <button 
-                  onClick={() => {
-                    // Verifica suporte a Compartilhamento Nativo com Arquivos (Mobile devices)
-                    const files = downloadModalData.map(d => new File([d.blob], d.name, { type: 'image/png' }));
-                    
-                    if (navigator.share && navigator.canShare && navigator.canShare({ files })) {
-                      // Usa a gaveta nativa do iOS/Android
-                      navigator.share({ files, title: 'Meus Posts' })
-                        .catch(e => console.log('Share cancelado ou falhou', e));
-                    } else {
-                      // Fallback: Download clássico síncrono para Desktop
-                      // Importante: Sem async/await ou setTimeout para evitar bloqueio de popups
-                      downloadModalData.forEach((d) => {
-                        const a = document.createElement('a');
-                        a.href = d.url;
-                        a.download = d.name;
-                        a.style.display = 'none';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                      });
-                    }
-                  }}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition-colors shadow-lg shadow-indigo-600/20"
-                >
-                  {navigator.share ? 'Salvar Tudo na Galeria' : 'Baixar Imagens'}
-                </button>
-                <button 
-                  onClick={() => {
-                    downloadModalData.forEach(d => URL.revokeObjectURL(d.url));
-                    setDownloadModalData(null);
-                  }}
-                  className="w-full bg-white/5 hover:bg-white/10 text-white font-bold py-3.5 rounded-xl transition-colors"
-                >
-                  Fechar
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
