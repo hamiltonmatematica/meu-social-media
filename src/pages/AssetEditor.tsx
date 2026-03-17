@@ -58,6 +58,7 @@ export default function AssetEditor() {
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [isSearchingPhotos, setIsSearchingPhotos] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [downloadModalData, setDownloadModalData] = useState<{ url: string, name: string, blob: Blob }[] | null>(null);
   
   // Novos Estilos de Layout
   const [globalStyle, setGlobalStyle] = useState<'classic' | 'centered' | 'twitter'>(incomingData?.globalStyle || 'classic');
@@ -381,78 +382,34 @@ export default function AssetEditor() {
     });
   };
 
-  // Verifica se é dispositivo móvel para usar o Web Share API (Galeria)
+  // Abre o Modal com 1 slide para Download/Compartilhamento
   const downloadSlide = async (slide: any, index: number) => {
+    setIsDownloadingAll(true);
     try {
       const blob = await renderSlideToCanvas(slide);
       const fileName = `slide-${index + 1}.png`;
-      const file = new File([blob], fileName, { type: 'image/png' });
-
-      // Tenta compartilhar nativamente (no mobile, abre a opção de salvar na Galeria)
-      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({
-            files: [file],
-            title: 'Baixar Post',
-          });
-          return; // Se funcionou o share/salvar, encerra aqui
-        } catch (shareErr) {
-          console.log('Compartilhamento cancelado ou falhou', shareErr);
-          // Fallback para download normal
-        }
-      }
-
-      // Download padrão via tag <a> (comum no Desktop ou se Share falhar)
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setDownloadModalData([{ url, name: fileName, blob }]);
     } catch (err) {
-      console.error('Erro ao baixar slide:', err);
+      console.error('Erro ao preparar slide:', err);
+    } finally {
+      setIsDownloadingAll(false);
     }
   };
 
-  // Download de todas as imagens de uma vez (suporta Share no celular)
+  // Abre o Modal com todos os slides para Download/Compartilhamento
   const downloadAllSlides = async () => {
     setIsDownloadingAll(true);
     try {
-      const files: File[] = [];
+      const data = [];
       for (let i = 0; i < mockSlides.length; i++) {
         const blob = await renderSlideToCanvas(mockSlides[i]);
-        files.push(new File([blob], `slide-${i + 1}.png`, { type: 'image/png' }));
+        const url = URL.createObjectURL(blob);
+        data.push({ url, name: `slide-${i + 1}.png`, blob });
       }
-
-      if (navigator.share && navigator.canShare && navigator.canShare({ files })) {
-        try {
-          await navigator.share({
-            files,
-            title: 'Baixar Todos os Posts',
-          });
-          setIsDownloadingAll(false);
-          return;
-        } catch (shareErr) {
-          console.log('Compartilhamento múltiplo cancelado', shareErr);
-        }
-      }
-
-      // Fallback clássico
-      for (let i = 0; i < files.length; i++) {
-        const url = URL.createObjectURL(files[i]);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `slide-${i + 1}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        await new Promise(r => setTimeout(r, 400));
-      }
+      setDownloadModalData(data);
     } catch (err) {
-      console.error('Erro ao baixar slides:', err);
+      console.error('Erro ao preparar slides:', err);
     } finally {
       setIsDownloadingAll(false);
     }
@@ -1826,6 +1783,71 @@ export default function AssetEditor() {
                   className="flex-1 py-3 rounded-xl text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors cursor-pointer"
                 >
                   Confirmar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL DE DOWNLOAD MOBILE-FRIENDLY */}
+      <AnimatePresence>
+        {downloadModalData && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-sm flex flex-col shadow-2xl max-h-[90vh] overflow-hidden"
+            >
+              <div className="p-6 text-center border-b border-white/10 shrink-0">
+                <h3 className="text-xl font-bold text-white mb-2">Pronto para Salvar!</h3>
+                <p className="text-sm text-slate-400">
+                  {navigator.share 
+                    ? "Clique abaixo para Compartilhar/Salvar ou pressione e segure nas imagens para ir para a Galeria."
+                    : "Pressione e segure nas imagens abaixo para salvar na sua Galeria, ou clique em Baixar."}
+                </p>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                {downloadModalData.map((item, i) => (
+                  <img key={i} src={item.url} alt={`Slide ${i+1}`} className="w-full rounded-lg border border-white/10 shadow-lg" />
+                ))}
+              </div>
+
+              <div className="p-6 border-t border-white/10 space-y-3 shrink-0 bg-slate-950/50">
+                <button 
+                  onClick={async () => {
+                    // Compartilhamento nativo iOS/Android sincronamente com o click!
+                    if (navigator.share && navigator.canShare) {
+                      try {
+                        const files = downloadModalData.map(d => new File([d.blob], d.name, { type: 'image/png' }));
+                        await navigator.share({ files, title: 'Meus Posts' });
+                      } catch(e) { console.log('Share error or abort'); }
+                    } else {
+                      // Fallback clássico
+                      downloadModalData.forEach((d, i) => {
+                        setTimeout(() => {
+                          const a = document.createElement('a');
+                          a.href = d.url;
+                          a.download = d.name;
+                          a.click();
+                        }, i * 300);
+                      });
+                    }
+                  }}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition-colors shadow-lg shadow-indigo-600/20"
+                >
+                  {navigator.share ? 'Salvar Tudo na Galeria' : 'Baixar Imagens'}
+                </button>
+                <button 
+                  onClick={() => {
+                    downloadModalData.forEach(d => URL.revokeObjectURL(d.url));
+                    setDownloadModalData(null);
+                  }}
+                  className="w-full bg-white/5 hover:bg-white/10 text-white font-bold py-3.5 rounded-xl transition-colors"
+                >
+                  Fechar
                 </button>
               </div>
             </motion.div>
