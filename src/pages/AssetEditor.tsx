@@ -381,14 +381,32 @@ export default function AssetEditor() {
     });
   };
 
-  // Download de um slide individual
+  // Verifica se é dispositivo móvel para usar o Web Share API (Galeria)
   const downloadSlide = async (slide: any, index: number) => {
     try {
       const blob = await renderSlideToCanvas(slide);
+      const fileName = `slide-${index + 1}.png`;
+      const file = new File([blob], fileName, { type: 'image/png' });
+
+      // Tenta compartilhar nativamente (no mobile, abre a opção de salvar na Galeria)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'Baixar Post',
+          });
+          return; // Se funcionou o share/salvar, encerra aqui
+        } catch (shareErr) {
+          console.log('Compartilhamento cancelado ou falhou', shareErr);
+          // Fallback para download normal
+        }
+      }
+
+      // Download padrão via tag <a> (comum no Desktop ou se Share falhar)
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `slide-${index + 1}.png`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -398,14 +416,40 @@ export default function AssetEditor() {
     }
   };
 
-  // Download de todas as imagens de uma vez
+  // Download de todas as imagens de uma vez (suporta Share no celular)
   const downloadAllSlides = async () => {
     setIsDownloadingAll(true);
     try {
+      const files: File[] = [];
       for (let i = 0; i < mockSlides.length; i++) {
-        await downloadSlide(mockSlides[i], i);
-        // Delay entre downloads para não sobrecarregar
-        await new Promise(r => setTimeout(r, 300));
+        const blob = await renderSlideToCanvas(mockSlides[i]);
+        files.push(new File([blob], `slide-${i + 1}.png`, { type: 'image/png' }));
+      }
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files })) {
+        try {
+          await navigator.share({
+            files,
+            title: 'Baixar Todos os Posts',
+          });
+          setIsDownloadingAll(false);
+          return;
+        } catch (shareErr) {
+          console.log('Compartilhamento múltiplo cancelado', shareErr);
+        }
+      }
+
+      // Fallback clássico
+      for (let i = 0; i < files.length; i++) {
+        const url = URL.createObjectURL(files[i]);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `slide-${i + 1}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        await new Promise(r => setTimeout(r, 400));
       }
     } catch (err) {
       console.error('Erro ao baixar slides:', err);
