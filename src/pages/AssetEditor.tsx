@@ -2118,8 +2118,8 @@ export default function AssetEditor() {
                 </h3>
                 <button onClick={() => setCropModalOpen(false)} className="text-slate-400 hover:text-white transition-colors text-xl leading-none">&times;</button>
               </div>
-              <div className="relative w-full h-80 bg-black flex flex-col md:flex-row overflow-hidden">
-                <div className="flex-1 relative h-64 md:h-80">
+              <div className="relative w-full h-80 bg-black flex flex-col overflow-hidden">
+                <div className="flex-1 relative w-full h-full">
                   <Cropper
                     image={imageToCrop}
                     crop={crop}
@@ -2132,20 +2132,38 @@ export default function AssetEditor() {
                     onCropComplete={(_, croppedPixels) => setCroppedAreaPixels(croppedPixels)}
                   />
                 </div>
-                {/* Lateral com Controle de Zoom */}
-                <div className="w-full md:w-20 bg-slate-900 border-t md:border-t-0 md:border-l border-white/10 flex flex-row md:flex-col items-center justify-center p-4 gap-4">
-                  <span className="text-white/60 text-[10px] font-bold uppercase tracking-widest hidden md:block" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Zoom</span>
+              </div>
+              
+              {/* Controles de Zoom Horizontal (Abaixo da foto) */}
+              <div className="px-6 py-4 bg-slate-900 flex flex-col gap-2">
+                <div className="flex items-center justify-between text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">
+                  <span>Afastar</span>
+                  <span>Zoom</span>
+                  <span>Aproximar</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => setZoom(z => Math.max(1, z - 0.1))}
+                    className="w-10 h-10 shrink-0 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white flex items-center justify-center font-black text-lg transition-colors"
+                  >
+                    -
+                  </button>
                   <input
                     type="range"
                     value={zoom}
                     min={1}
                     max={3}
                     step={0.1}
-                    aria-labelledby="Zoom"
+                    aria-label="Zoom"
                     onChange={(e) => setZoom(Number(e.target.value))}
-                    className="w-full md:h-32 accent-indigo-500 cursor-pointer"
-                    style={{ WebkitAppearance: 'slider-vertical' } as React.CSSProperties}
+                    className="flex-1 accent-indigo-500 cursor-pointer h-2 bg-slate-700/50 rounded-lg appearance-none"
                   />
+                  <button 
+                    onClick={() => setZoom(z => Math.min(3, z + 0.1))}
+                    className="w-10 h-10 shrink-0 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white flex items-center justify-center font-black text-lg transition-colors"
+                  >
+                    +
+                  </button>
                 </div>
               </div>
               <div className="p-4 flex gap-3 border-t border-white/10 relative z-50">
