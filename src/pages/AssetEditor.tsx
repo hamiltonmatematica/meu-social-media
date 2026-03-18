@@ -421,71 +421,72 @@ export default function AssetEditor() {
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
         // 3. Bloco inferior: avatar + handle + título + subtexto
-        const bottomPad = Math.round(80 * S);
-        let curY = CANVAS_H - bottomPad;
+        const bottomPad = Math.round(32 * S); // pb-8 = 32px
+        const paddingXCover = Math.round(24 * S); // px-6 = 24px
+        const maxWCover = CANVAS_W - paddingXCover * 2;
 
         // Calcular alturas de texto (de baixo pra cima)
-        const subtextFontSize = Math.round(16 * S);
+        const subtextFontSize = Math.round(14 * S); // text-sm = 14px
         ctx.font = `400 ${subtextFontSize}px Inter, sans-serif`;
-        const subLines = wrapText(ctx, slide.texto || '', maxW);
+        const subLines = wrapText(ctx, slide.texto || '', maxWCover);
         const subH = subLines.length * Math.round(subtextFontSize * 1.5);
 
         const magTitleWeight = textBold ? '900' : '800';
-        const titleFontSize = Math.round(44 * S);
+        const titleFontSize = Math.round(30 * S); // text-3xl = 30px
         ctx.font = `${magTitleWeight} ${titleFontSize}px Inter, sans-serif`;
         const magTitleRaw = textUppercase ? (slide.titulo || '').toUpperCase() : (slide.titulo || '');
-        const titleLines = wrapText(ctx, magTitleRaw, maxW);
-        const titleH = titleLines.length * Math.round(titleFontSize * 1.2);
+        const titleLines = wrapText(ctx, magTitleRaw, maxWCover);
+        const titleH = titleLines.length * Math.round(titleFontSize * 1.25);
 
-        const avatarBlockH = Math.round(52 * S);
-        const gapAvatarTitle = Math.round(24 * S);
-        const gapTitleSub = Math.round(20 * S);
+        const avatarSize = Math.round(36 * S); // w-9 h-9 = 36px
+        const handleFontSize = Math.round(14 * S); // text-sm = 14px
+        const gapAvatarHandle = Math.round(8 * S); // gap-2 = 8px
+        const avatarBlockH = avatarSize; 
+        const gapAvatarTitle = Math.round(16 * S); // mb-4 = 16px
+        const gapTitleSub = Math.round(12 * S); // mb-3 = 12px
 
         const totalH = avatarBlockH + gapAvatarTitle + titleH + (subLines.length > 0 ? gapTitleSub + subH : 0);
-        curY = CANVAS_H - bottomPad - totalH;
+        let curY = CANVAS_H - bottomPad - totalH;
 
-        // Avatar + handle (centralizados)
-        const avatarSize = Math.round(44 * S);
-        const avatarX = (CANVAS_W - avatarSize) / 2;
+        // Avatar + handle (grupo centralizado)
+        ctx.font = `700 ${handleFontSize}px Inter, sans-serif`;
+        const handleW = ctx.measureText(twitterHandle || '@seuarroba').width;
+        const groupW = avatarSize + gapAvatarHandle + handleW;
+        const groupX = (CANVAS_W - groupW) / 2;
+
         if (avatarImg) {
           ctx.save();
           ctx.beginPath();
-          ctx.arc(avatarX + avatarSize / 2, curY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+          ctx.arc(groupX + avatarSize / 2, curY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
           ctx.clip();
-          ctx.drawImage(avatarImg, avatarX, curY, avatarSize, avatarSize);
+          ctx.drawImage(avatarImg, groupX, curY, avatarSize, avatarSize);
           ctx.restore();
         } else {
           // Círculo placeholder laranja
           ctx.fillStyle = '#ea580c';
           ctx.beginPath();
-          ctx.arc(avatarX + avatarSize / 2, curY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+          ctx.arc(groupX + avatarSize / 2, curY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
           ctx.fill();
         }
-        // Handle ao lado do avatar
-        const handleFontSize = Math.round(15 * S);
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `700 ${handleFontSize}px Inter, sans-serif`;
-        ctx.fillText(twitterHandle || '@seuarroba', CANVAS_W / 2, curY + avatarSize / 2 + Math.round(handleFontSize * 0.35));
-        // Reposicionar handle para ficar ao lado direito do avatar
+        
         ctx.textAlign = 'left';
-        const handleTextX = CANVAS_W / 2 + Math.round(avatarSize * 0.6);
-        ctx.fillText(twitterHandle || '@seuarroba', handleTextX, curY + avatarSize / 2 + Math.round(handleFontSize * 0.35));
-        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(twitterHandle || '@seuarroba', groupX + avatarSize + gapAvatarHandle, curY + avatarSize / 2 + Math.round(handleFontSize * 0.35));
 
         curY += avatarBlockH + gapAvatarTitle;
 
-        // Título
+        // Título centralizado
+        ctx.textAlign = 'center';
         ctx.fillStyle = titleColor;
         ctx.font = `${magTitleWeight} ${titleFontSize}px Inter, sans-serif`;
         ctx.shadowColor = 'rgba(0,0,0,0.6)';
         ctx.shadowBlur = 12;
-        const titleLH = Math.round(titleFontSize * 1.2);
+        const titleLH = Math.round(titleFontSize * 1.25);
         titleLines.forEach((line, i) => ctx.fillText(line, CANVAS_W / 2, curY + titleFontSize + i * titleLH));
         curY += titleH + gapTitleSub;
         ctx.shadowBlur = 0;
 
-        // Subtexto
+        // Subtexto centralizado
         if (subLines.length > 0) {
           ctx.fillStyle = textColor;
           ctx.font = `400 ${subtextFontSize}px Inter, sans-serif`;
@@ -503,53 +504,76 @@ export default function AssetEditor() {
         const textMainColor = isDark ? titleColor : '#111111';
         const textSecColor = isDark ? textColor : '#333333';
 
-        const topPad = Math.round(48 * S);
-        const imageH = Math.round(CANVAS_H * 0.38); // imagem ocupa ~38% da altura
-        const imgY = Math.round(CANVAS_H * 0.35); // posicionada a 35% do topo
-        const imgRadius = Math.round(16 * S);
+        const pad = Math.round(20 * S); // p-5 = 20px
+        const maxW2 = CANVAS_W - pad * 2;
+        
+        // Alinhamento dinâmico
+        const alignMag2 = slide.alinhamento === 'text-center' ? 'center' : slide.alinhamento === 'text-right' ? 'right' : 'left';
+        ctx.textAlign = alignMag2 as CanvasTextAlign;
+        const textX = alignMag2 === 'center' ? CANVAS_W / 2 : alignMag2 === 'right' ? CANVAS_W - pad : pad;
+
+        const isDark = bgColor === '#000000' || bgColor === '#1a1a2e';
+        const textMainColor = isDark ? titleColor : '#111111';
+        const textSecColor = isDark ? textColor : '#333333';
+
+        let curY2 = pad; // padding do topo (20px)
 
         // Texto principal ACIMA da imagem
-        const tFontSize = Math.round(32 * S);
+        const tFontSize = Math.round(20 * S); // text-xl = 20px
         const mag2Weight = textBold ? '900' : '800';
         ctx.font = `${mag2Weight} ${tFontSize}px Inter, sans-serif`;
         ctx.fillStyle = textMainColor;
-        ctx.textAlign = 'left';
         const tRaw = textUppercase ? (slide.titulo || '').toUpperCase() : (slide.titulo || '');
-        const tLines = wrapText(ctx, tRaw, maxW);
-        const tLH = Math.round(tFontSize * 1.2);
-        tLines.forEach((line, i) => ctx.fillText(line, paddingX, topPad + tFontSize + i * tLH));
+        const tLines = wrapText(ctx, tRaw, maxW2);
+        const tLH = Math.round(tFontSize * 1.25);
+        tLines.forEach((line) => {
+          ctx.fillText(line, textX, curY2 + tFontSize);
+          curY2 += tLH;
+        });
+
+        // mb-3
+        curY2 += Math.round(12 * S);
 
         // Imagem horizontal centralizada
+        const imageH = Math.round(CANVAS_H * 0.40); // height: 40%
+        const imgRadius = Math.round(12 * S); // rounded-xl = 12px
+
         if (mainImg) {
           ctx.save();
-          // Rounded rect clip
           ctx.beginPath();
-          ctx.moveTo(paddingX + imgRadius, imgY);
-          ctx.lineTo(paddingX + maxW - imgRadius, imgY);
-          ctx.quadraticCurveTo(paddingX + maxW, imgY, paddingX + maxW, imgY + imgRadius);
-          ctx.lineTo(paddingX + maxW, imgY + imageH - imgRadius);
-          ctx.quadraticCurveTo(paddingX + maxW, imgY + imageH, paddingX + maxW - imgRadius, imgY + imageH);
-          ctx.lineTo(paddingX + imgRadius, imgY + imageH);
-          ctx.quadraticCurveTo(paddingX, imgY + imageH, paddingX, imgY + imageH - imgRadius);
-          ctx.lineTo(paddingX, imgY + imgRadius);
-          ctx.quadraticCurveTo(paddingX, imgY, paddingX + imgRadius, imgY);
+          ctx.moveTo(pad + imgRadius, curY2);
+          ctx.lineTo(pad + maxW2 - imgRadius, curY2);
+          ctx.quadraticCurveTo(pad + maxW2, curY2, pad + maxW2, curY2 + imgRadius);
+          ctx.lineTo(pad + maxW2, curY2 + imageH - imgRadius);
+          ctx.quadraticCurveTo(pad + maxW2, curY2 + imageH, pad + maxW2 - imgRadius, curY2 + imageH);
+          ctx.lineTo(pad + imgRadius, curY2 + imageH);
+          ctx.quadraticCurveTo(pad, curY2 + imageH, pad, curY2 + imageH - imgRadius);
+          ctx.lineTo(pad, curY2 + imgRadius);
+          ctx.quadraticCurveTo(pad, curY2, pad + imgRadius, curY2);
           ctx.closePath();
           ctx.clip();
-          const sc = Math.max(maxW / mainImg.width, imageH / mainImg.height);
+          
+          const sc = Math.max(maxW2 / mainImg.width, imageH / mainImg.height);
           const w2 = mainImg.width * sc;
           const h2 = mainImg.height * sc;
-          ctx.drawImage(mainImg, paddingX + (maxW - w2) / 2, imgY + (imageH - h2) / 2, w2, h2);
+          ctx.drawImage(mainImg, pad + (maxW2 - w2) / 2, curY2 + (imageH - h2) / 2, w2, h2);
           ctx.restore();
         }
 
+        curY2 += imageH + Math.round(12 * S); // height da imagem + mb-3
+
         // Texto de apoio ABAIXO da imagem
-        const bodyY = imgY + imageH + Math.round(28 * S);
-        const bFontSize = Math.round(20 * S);
+        const bFontSize = Math.round(14 * S); // text-sm = 14px
         ctx.font = `500 ${bFontSize}px Inter, sans-serif`;
         ctx.fillStyle = textSecColor;
-        const bLines = wrapText(ctx, slide.texto || '', maxW);
-        const bLH = Math.round(bFontSize * 1.55);
-        bLines.forEach((line, i) => { if (line) ctx.fillText(line, paddingX, bodyY + bFontSize + i * bLH); });
+        const bLines = wrapText(ctx, slide.texto || '', maxW2);
+        const bLH = Math.round(bFontSize * 1.5);
+        bLines.forEach((line) => { 
+          if (line) {
+            ctx.fillText(line, textX, curY2 + bFontSize);
+            curY2 += bLH;
+          }
+        });
       }
     }
 
