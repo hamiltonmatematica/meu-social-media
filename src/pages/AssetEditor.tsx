@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+    import React, { useState, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Sparkles, ArrowLeft, Download, Copy, Check, ChevronLeft, ChevronRight, Image as ImageIcon, Type, AlignLeft, AlignCenter, AlignRight, RefreshCw, MessageSquare, Wand2, Search, Camera, Home, Palette, PackageOpen, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -58,6 +58,9 @@ export default function AssetEditor() {
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [isSearchingPhotos, setIsSearchingPhotos] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  
+  // Fontes e Referências
+  const [sources, setSources] = useState<any[]>(incomingData?.sources || []);
   
   // Estilos de Layout
   const [globalStyle, setGlobalStyle] = useState<'classic' | 'centered' | 'twitter' | 'magazine'>(incomingData?.globalStyle || 'classic');
@@ -234,10 +237,12 @@ export default function AssetEditor() {
     const maxWidth = CANVAS_W - (paddingX * 2);
 
     if (globalStyle === 'classic' || globalStyle === 'centered') {
-      const titleFontSize = Math.round( (globalStyle === 'centered' ? 36 : 36) * S);
+      const titleWeight = textBold ? '900' : '800';
+      const titleFontSize = Math.round(36 * S);
       const titleLineHeight = Math.round(titleFontSize * 1.25);
-      ctx.font = `800 ${titleFontSize}px Inter, -apple-system, Helvetica, sans-serif`;
-      const titleLines = wrapText(ctx, (slide.titulo || ''), maxWidth);
+      ctx.font = `${titleWeight} ${titleFontSize}px Inter, -apple-system, Helvetica, sans-serif`;
+      const titleRaw = textUppercase ? (slide.titulo || '').toUpperCase() : (slide.titulo || '');
+      const titleLines = wrapText(ctx, titleRaw, maxWidth);
 
       const bodyFontSize = Math.round( (globalStyle === 'centered' ? 18 : 16) * S);
       const bodyLineHeight = Math.round(bodyFontSize * 1.625);
@@ -276,7 +281,7 @@ export default function AssetEditor() {
 
       // Desenhar Title
       ctx.fillStyle = titleColor;
-      ctx.font = `800 ${titleFontSize}px Inter, -apple-system, Helvetica, sans-serif`;
+      ctx.font = `${titleWeight} ${titleFontSize}px Inter, -apple-system, Helvetica, sans-serif`;
       titleLines.forEach((line, i) => ctx.fillText(line, textX, titleStartY + (i * titleLineHeight)));
 
       // Desenhar Body
@@ -332,13 +337,15 @@ export default function AssetEditor() {
         if (currentFont === 'font-serif') canvasFontFamily = 'Playfair, serif';
         else if (currentFont === 'font-mono') canvasFontFamily = 'JetBrains Mono, monospace';
 
-        ctx.font = `400 ${twTitleFont}px ${canvasFontFamily}`;
-        const tLines = wrapText(ctx, (slide.titulo || ''), maxWidth);
+        const twTitleWeight = textBold ? '700' : '400';
+        ctx.font = `${twTitleWeight} ${twTitleFont}px ${canvasFontFamily}`;
+        const twTitleRaw = textUppercase ? (slide.titulo || '').toUpperCase() : (slide.titulo || '');
+        const tLines = wrapText(ctx, twTitleRaw, maxWidth);
         tLines.forEach(line => {
-          ctx.fillText(line, textX, currentY + twTitleFont); // offset basílico
+          ctx.fillText(line, textX, currentY + twTitleFont);
           currentY += twTitleLh;
         });
-        currentY += Math.round(4 * S); // gap sutil para o texto
+        currentY += Math.round(4 * S);
       }
 
       // text main
@@ -423,9 +430,11 @@ export default function AssetEditor() {
         const subLines = wrapText(ctx, slide.texto || '', maxW);
         const subH = subLines.length * Math.round(subtextFontSize * 1.5);
 
+        const magTitleWeight = textBold ? '900' : '800';
         const titleFontSize = Math.round(44 * S);
-        ctx.font = `900 ${titleFontSize}px Inter, sans-serif`;
-        const titleLines = wrapText(ctx, slide.titulo || '', maxW);
+        ctx.font = `${magTitleWeight} ${titleFontSize}px Inter, sans-serif`;
+        const magTitleRaw = textUppercase ? (slide.titulo || '').toUpperCase() : (slide.titulo || '');
+        const titleLines = wrapText(ctx, magTitleRaw, maxW);
         const titleH = titleLines.length * Math.round(titleFontSize * 1.2);
 
         const avatarBlockH = Math.round(52 * S);
@@ -468,7 +477,7 @@ export default function AssetEditor() {
 
         // Título
         ctx.fillStyle = titleColor;
-        ctx.font = `900 ${titleFontSize}px Inter, sans-serif`;
+        ctx.font = `${magTitleWeight} ${titleFontSize}px Inter, sans-serif`;
         ctx.shadowColor = 'rgba(0,0,0,0.6)';
         ctx.shadowBlur = 12;
         const titleLH = Math.round(titleFontSize * 1.2);
@@ -501,10 +510,12 @@ export default function AssetEditor() {
 
         // Texto principal ACIMA da imagem
         const tFontSize = Math.round(32 * S);
-        ctx.font = `900 ${tFontSize}px Inter, sans-serif`;
+        const mag2Weight = textBold ? '900' : '800';
+        ctx.font = `${mag2Weight} ${tFontSize}px Inter, sans-serif`;
         ctx.fillStyle = textMainColor;
         ctx.textAlign = 'left';
-        const tLines = wrapText(ctx, slide.titulo || '', maxW);
+        const tRaw = textUppercase ? (slide.titulo || '').toUpperCase() : (slide.titulo || '');
+        const tLines = wrapText(ctx, tRaw, maxW);
         const tLH = Math.round(tFontSize * 1.2);
         tLines.forEach((line, i) => ctx.fillText(line, paddingX, topPad + tFontSize + i * tLH));
 
@@ -1533,11 +1544,11 @@ export default function AssetEditor() {
           </div>
 
           {/* Links de Referência */}
-          {incomingData?.sources?.length > 0 && (
+          {sources.length > 0 && (
             <div className="mt-6 px-6 pb-4">
               <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-3 text-center">🔗 Links de Referência</p>
               <div className="flex flex-wrap gap-2 justify-center">
-                {incomingData.sources.map((src: any, i: number) => (
+                {sources.map((src: any, i: number) => (
                   <a 
                     key={i} 
                     href={src.url} 
@@ -2001,9 +2012,9 @@ export default function AssetEditor() {
 
           <div className="px-6 pb-6 text-center">
              <p className="text-[10px] text-slate-500 font-medium mb-3">Acesse os links de referência para colocar mais informações na sua copy final.</p>
-             {incomingData?.sources?.length > 0 && (
+             {sources.length > 0 && (
                <div className="flex flex-col gap-2 items-center text-left">
-                 {incomingData.sources.map((src: any, i: number) => (
+                 {sources.map((src: any, i: number) => (
                    <a 
                      key={i} 
                      href={src.url} 
