@@ -425,18 +425,24 @@ export default function AssetEditor() {
         const paddingXCover = Math.round(24 * S); // px-6 = 24px
         const maxWCover = CANVAS_W - paddingXCover * 2;
 
+        let canvasFontFamily = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        if (currentFont === 'font-serif') canvasFontFamily = '"Playfair Display", serif';
+        else if (currentFont === 'font-mono') canvasFontFamily = '"JetBrains Mono", monospace';
+
         // Calcular alturas de texto (de baixo pra cima)
         const subtextFontSize = Math.round(14 * S); // text-sm = 14px
-        ctx.font = `400 ${subtextFontSize}px Inter, sans-serif`;
+        ctx.font = `500 ${subtextFontSize}px ${canvasFontFamily}`;
         const subLines = wrapText(ctx, slide.texto || '', maxWCover);
         const subH = subLines.length * Math.round(subtextFontSize * 1.5);
 
         const magTitleWeight = textBold ? '900' : '800';
-        const titleFontSize = Math.round(30 * S); // text-3xl = 30px
-        ctx.font = `${magTitleWeight} ${titleFontSize}px Inter, sans-serif`;
+        const titleFontSize = Math.round(32 * S); // ~ text-3xl
+        ctx.letterSpacing = "-0.02em"; // tailwind tight
+        ctx.font = `${magTitleWeight} ${titleFontSize}px ${canvasFontFamily}`;
         const magTitleRaw = textUppercase ? (slide.titulo || '').toUpperCase() : (slide.titulo || '');
         const titleLines = wrapText(ctx, magTitleRaw, maxWCover);
         const titleH = titleLines.length * Math.round(titleFontSize * 1.25);
+        ctx.letterSpacing = "0px";
 
         const avatarSize = Math.round(36 * S); // w-9 h-9 = 36px
         const handleFontSize = Math.round(14 * S); // text-sm = 14px
@@ -449,7 +455,7 @@ export default function AssetEditor() {
         let curY = CANVAS_H - bottomPad - totalH;
 
         // Avatar + handle (grupo centralizado)
-        ctx.font = `700 ${handleFontSize}px Inter, sans-serif`;
+        ctx.font = `700 ${handleFontSize}px ${canvasFontFamily}`;
         const handleW = ctx.measureText(twitterHandle || '@seuarroba').width;
         const groupW = avatarSize + gapAvatarHandle + handleW;
         const groupX = (CANVAS_W - groupW) / 2;
@@ -478,18 +484,20 @@ export default function AssetEditor() {
         // Título centralizado
         ctx.textAlign = 'center';
         ctx.fillStyle = titleColor;
-        ctx.font = `${magTitleWeight} ${titleFontSize}px Inter, sans-serif`;
+        ctx.letterSpacing = "-0.02em";
+        ctx.font = `${magTitleWeight} ${titleFontSize}px ${canvasFontFamily}`;
         ctx.shadowColor = 'rgba(0,0,0,0.6)';
         ctx.shadowBlur = 12;
         const titleLH = Math.round(titleFontSize * 1.25);
         titleLines.forEach((line, i) => ctx.fillText(line, CANVAS_W / 2, curY + titleFontSize + i * titleLH));
         curY += titleH + gapTitleSub;
         ctx.shadowBlur = 0;
+        ctx.letterSpacing = "0px";
 
         // Subtexto centralizado
         if (subLines.length > 0) {
           ctx.fillStyle = textColor;
-          ctx.font = `400 ${subtextFontSize}px Inter, sans-serif`;
+          ctx.font = `500 ${subtextFontSize}px ${canvasFontFamily}`;
           const subLH = Math.round(subtextFontSize * 1.5);
           subLines.forEach((line, i) => { if (line) ctx.fillText(line, CANVAS_W / 2, curY + subtextFontSize + i * subLH); });
         }
@@ -513,10 +521,15 @@ export default function AssetEditor() {
         const textX = alignMag2 === 'center' ? CANVAS_W / 2 : alignMag2 === 'right' ? CANVAS_W - pad : pad;
         let curY2 = pad; // padding do topo (20px)
 
+        let canvasFontFamily = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        if (currentFont === 'font-serif') canvasFontFamily = '"Playfair Display", serif';
+        else if (currentFont === 'font-mono') canvasFontFamily = '"JetBrains Mono", monospace';
+
         // Texto principal ACIMA da imagem
-        const tFontSize = Math.round(20 * S); // text-xl = 20px
+        const tFontSize = Math.round(22 * S); // text-xl / 22px
         const mag2Weight = textBold ? '900' : '800';
-        ctx.font = `${mag2Weight} ${tFontSize}px Inter, sans-serif`;
+        ctx.letterSpacing = "-0.02em";
+        ctx.font = `${mag2Weight} ${tFontSize}px ${canvasFontFamily}`;
         ctx.fillStyle = textMainColor;
         const tRaw = textUppercase ? (slide.titulo || '').toUpperCase() : (slide.titulo || '');
         const tLines = wrapText(ctx, tRaw, maxW2);
@@ -525,6 +538,7 @@ export default function AssetEditor() {
           ctx.fillText(line, textX, curY2 + tFontSize);
           curY2 += tLH;
         });
+        ctx.letterSpacing = "0px";
 
         // mb-3
         curY2 += Math.round(12 * S);
@@ -558,8 +572,8 @@ export default function AssetEditor() {
         curY2 += imageH + Math.round(12 * S); // height da imagem + mb-3
 
         // Texto de apoio ABAIXO da imagem
-        const bFontSize = Math.round(14 * S); // text-sm = 14px
-        ctx.font = `500 ${bFontSize}px Inter, sans-serif`;
+        const bFontSize = Math.round(15 * S); // text-sm
+        ctx.font = `500 ${bFontSize}px ${canvasFontFamily}`;
         ctx.fillStyle = textSecColor;
         const bLines = wrapText(ctx, slide.texto || '', maxW2);
         const bLH = Math.round(bFontSize * 1.5);
