@@ -511,11 +511,6 @@ export default function AssetEditor() {
         const alignMag2 = slide.alinhamento === 'text-center' ? 'center' : slide.alinhamento === 'text-right' ? 'right' : 'left';
         ctx.textAlign = alignMag2 as CanvasTextAlign;
         const textX = alignMag2 === 'center' ? CANVAS_W / 2 : alignMag2 === 'right' ? CANVAS_W - pad : pad;
-
-        const isDark = bgColor === '#000000' || bgColor === '#1a1a2e';
-        const textMainColor = isDark ? titleColor : '#111111';
-        const textSecColor = isDark ? textColor : '#333333';
-
         let curY2 = pad; // padding do topo (20px)
 
         // Texto principal ACIMA da imagem
