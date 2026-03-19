@@ -7,14 +7,12 @@ import { Clock, CheckCircle2, AlertCircle, Download, ExternalLink, RefreshCw, Tr
 export default function Dashboard() {
   const { user, signOut, userCredits } = useAuth();
   const [recentPosts, setRecentPosts] = React.useState<any[]>([]);
-  const [profiles, setProfiles] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [dbStatus, setDbStatus] = React.useState<'online' | 'offline'>('offline');
   const navigate = useNavigate();
 
   React.useEffect(() => {
     fetchPosts();
-    fetchProfiles();
     checkConnection();
   }, []);
 
@@ -27,19 +25,6 @@ export default function Dashboard() {
     }
   };
 
-  const fetchProfiles = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
-      
-      if (!error) setProfiles(data || []);
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   const fetchPosts = async () => {
     setLoading(true);
@@ -59,23 +44,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleDeleteProfile = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (!confirm('Tem certeza que deseja excluir este perfil? Todos os posts associados também serão removidos.')) return;
-
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', id);
-      
-      if (!error) {
-        setProfiles(profiles.filter(p => p.id !== id));
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   const handleEditPost = (post: any) => {
     navigate('/editor', { 
@@ -185,70 +153,7 @@ export default function Dashboard() {
         {/* END: TopHeader */}
 
         <div className="p-4 md:p-8 space-y-8">
-          {/* BEGIN: Selected Profiles */}
-          <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">Seus Perfis (DNA)</h2>
-                <p className="text-slate-400 text-sm mt-1">Selecione um perfil para a IA gerar ideias personalizadas para hoje.</p>
-              </div>
-              <button className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors">
-                <span className="material-symbols-outlined text-sm">add</span>
-                Novo Perfil
-              </button>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              
-              {profiles.map((profile) => (
-                <div 
-                  key={profile.id}
-                  onClick={() => navigate(`/dna?profile=${profile.id}`)}
-                  className="relative group bg-gradient-to-br from-indigo-900/40 to-slate-900 border border-indigo-500/30 p-6 rounded-2xl hover:border-indigo-400/60 transition-all cursor-pointer overflow-hidden"
-                >
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full blur-[40px] -translate-y-1/2 translate-x-1/2"></div>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-indigo-500/20 border-2 border-indigo-500/50 flex items-center justify-center text-indigo-400 font-bold text-xl uppercase">
-                        {profile.name.charAt(0)}
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-white">{profile.name}</h3>
-                        <p className="text-xs text-indigo-400 font-medium truncate max-w-[150px]">{profile.industry || 'Perfil S/F'}</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={(e) => handleDeleteProfile(e, profile.id)}
-                      className="text-slate-500 hover:text-red-400 transition-colors p-2 rounded-lg hover:bg-red-400/10"
-                      title="Excluir Perfil"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="mb-6">
-                    <p className="text-sm text-slate-300 line-clamp-2">Público: {profile.target_audience || 'Não definido'}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Ideias sugeridas agora (IA):</p>
-                    <Link to={`/create?topic=Ideias+de+conteúdo+para+${encodeURIComponent(profile.name)}`} className="block w-full bg-indigo-500/20 hover:bg-indigo-500/40 border border-indigo-500/20 text-indigo-300 text-xs py-2 px-3 rounded-lg transition-colors truncate">
-                      ✨ Criar conteúdo personalizado
-                    </Link>
-                  </div>
-                </div>
-              ))}
-              
-              {/* Vazio / Criar */}
-              <div onClick={() => navigate('/dna')} className="border-2 border-dashed border-slate-700 hover:border-slate-500 bg-slate-900 hover:bg-slate-800/50 rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-all cursor-pointer min-h-[250px] group">
-                <div className="w-12 h-12 rounded-full bg-slate-800 group-hover:bg-slate-700 flex items-center justify-center mb-4 transition-colors">
-                  <UserPlus className="w-6 h-6 text-slate-400 group-hover:text-white" />
-                </div>
-                <h3 className="text-white font-bold mb-1">Cadastrar Cliente/Perfil</h3>
-                <p className="text-sm text-slate-500">Configure o DNA de uma nova marca para gerar conteúdo nativo.</p>
-              </div>
-
-            </div>
-          </section>
-          {/* END: Selected Profiles */}
 
           <div className="mt-4">
             <div className="flex items-center justify-between mb-6">
