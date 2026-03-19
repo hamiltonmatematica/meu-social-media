@@ -2,13 +2,18 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Clock, CheckCircle2, AlertCircle, Download, ExternalLink, RefreshCw, Trash2, UserPlus, LogOut, Sparkles } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, Download, ExternalLink, RefreshCw, Trash2, UserPlus, LogOut, Sparkles, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const POSTS_PER_PAGE = 12;
 
 export default function Dashboard() {
   const { user, signOut, userCredits } = useAuth();
-  const [recentPosts, setRecentPosts] = React.useState<any[]>([]);
+  const [allPosts, setAllPosts] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [dbStatus, setDbStatus] = React.useState<'online' | 'offline'>('offline');
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const navigate = useNavigate();
 
   React.useEffect(() => {
@@ -25,7 +30,6 @@ export default function Dashboard() {
     }
   };
 
-
   const fetchPosts = async () => {
     setLoading(true);
     try {
@@ -33,10 +37,9 @@ export default function Dashboard() {
         .from('posts')
         .select('*')
         .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
+        .order('created_at', { ascending: false });
       
-      if (!error) setRecentPosts(data || []);
+      if (!error) setAllPosts(data || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -44,6 +47,21 @@ export default function Dashboard() {
     }
   };
 
+  const handleDeletePost = async (e: React.MouseEvent, postId: string) => {
+    e.stopPropagation();
+    if (!confirm('Tem certeza que deseja excluir este post?')) return;
+    setDeletingId(postId);
+    try {
+      const { error } = await supabase.from('posts').delete().eq('id', postId);
+      if (!error) {
+        setAllPosts(prev => prev.filter(p => p.id !== postId));
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const handleEditPost = (post: any) => {
     navigate('/editor', { 
@@ -62,6 +80,22 @@ export default function Dashboard() {
       } 
     });
   };
+
+  // Filter + Paginate
+  const filteredPosts = React.useMemo(() => {
+    if (!searchTerm.trim()) return allPosts;
+    const lower = searchTerm.toLowerCase();
+    return allPosts.filter(p => (p.title || '').toLowerCase().includes(lower));
+  }, [allPosts, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPosts.length / POSTS_PER_PAGE));
+  const paginatedPosts = filteredPosts.slice((currentPage - 1) * POSTS_PER_PAGE, currentPage * POSTS_PER_PAGE);
+
+  // Reset to page 1 when search changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   return (
     <div className="bg-slate-900 text-slate-100 flex h-screen overflow-hidden">
       {/* BEGIN: Sidebar */}
@@ -154,82 +188,153 @@ export default function Dashboard() {
 
         <div className="p-4 md:p-8 space-y-8">
 
-
           <div className="mt-4">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Clock className="w-5 h-5 text-indigo-400" /> Histórico Recente
-              </h3>
-              <button 
-                onClick={fetchPosts}
-                className="text-xs font-bold text-slate-400 hover:text-white transition-colors flex items-center gap-1"
-              >
-                <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} /> Sincronizar
-              </button>
+            {/* Header + Search */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+              <div className="flex items-center gap-3">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-indigo-400" /> Histórico Completo
+                </h3>
+                <span className="text-xs font-bold text-slate-500 bg-slate-800 px-2.5 py-1 rounded-full">
+                  {filteredPosts.length} post{filteredPosts.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="relative flex-1 sm:flex-initial">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por título..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full sm:w-64 bg-slate-900 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 transition-all"
+                  />
+                </div>
+                <button 
+                  onClick={fetchPosts}
+                  className="text-xs font-bold text-slate-400 hover:text-white transition-colors flex items-center gap-1 bg-slate-900 border border-white/10 rounded-xl px-3 py-2.5 hover:border-indigo-500/30 shrink-0"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Sincronizar
+                </button>
+              </div>
             </div>
 
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[1, 2].map(i => (
-                  <div key={i} className="h-32 bg-slate-800/50 rounded-2xl animate-pulse border border-white/5"></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map(i => (
+                  <div key={i} className="h-40 bg-slate-800/50 rounded-2xl animate-pulse border border-white/5"></div>
                 ))}
               </div>
-            ) : recentPosts.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {recentPosts.map((post) => (
-                  <div 
-                    key={post.id} 
-                    onClick={() => handleEditPost(post)}
-                    className="bg-slate-900 border border-white/5 p-5 rounded-2xl hover:border-indigo-500/30 transition-all group cursor-pointer"
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-2 py-0.5 rounded mb-2 inline-block">
-                          {post.content?.slides?.length || 0} Lâminas
-                        </span>
-                        <h4 className="text-lg font-bold text-white line-clamp-1 group-hover:text-indigo-300 transition-colors">
-                          {post.title || "Sem Tópico"}
-                        </h4>
-                        <p className="text-xs text-slate-500 mt-1">
-                          Gerado em {new Date(post.created_at).toLocaleDateString('pt-BR')} às {new Date(post.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
+            ) : paginatedPosts.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {paginatedPosts.map((post) => (
+                    <div 
+                      key={post.id} 
+                      onClick={() => handleEditPost(post)}
+                      className="bg-slate-900 border border-white/5 p-5 rounded-2xl hover:border-indigo-500/30 transition-all group cursor-pointer relative"
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1 min-w-0 mr-2">
+                          <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest bg-indigo-500/10 px-2 py-0.5 rounded mb-2 inline-block">
+                            {post.content?.slides?.length || 0} Lâminas
+                          </span>
+                          <h4 className="text-base font-bold text-white line-clamp-2 group-hover:text-indigo-300 transition-colors">
+                            {post.title || "Sem Tópico"}
+                          </h4>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {new Date(post.created_at).toLocaleDateString('pt-BR')} às {new Date(post.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                          <button 
+                            onClick={(e) => handleDeletePost(e, post.id)}
+                            className="p-2 bg-black/40 text-slate-500 hover:text-red-400 rounded-lg transition-colors border border-white/5 shadow-inner"
+                            title="Excluir post"
+                          >
+                            {deletingId === post.id ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button className="p-2 bg-black/40 text-slate-400 hover:text-white rounded-lg transition-colors border border-white/5 shadow-inner">
-                          <Download className="w-4 h-4" />
-                        </button>
-                        <button className="p-2 bg-black/40 text-slate-400 hover:text-white rounded-lg transition-colors border border-white/5 shadow-inner">
-                          <ExternalLink className="w-4 h-4" />
-                        </button>
+                      <div className="flex -space-x-2 overflow-hidden">
+                        {post.content?.slides?.slice(0, 5).map((slide: any, idx: number) => (
+                          <div key={idx} className="w-8 h-8 rounded-full border-2 border-slate-900 overflow-hidden bg-slate-800">
+                            <img src={slide.imagem} className="w-full h-full object-cover" alt="" />
+                          </div>
+                        ))}
+                        {(post.content?.slides?.length > 5) && (
+                          <div className="w-8 h-8 rounded-full border-2 border-slate-900 bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                            +{post.content.slides.length - 5}
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="flex -space-x-2 overflow-hidden">
-                      {post.content?.slides?.slice(0, 5).map((slide: any, idx: number) => (
-                        <div key={idx} className="w-8 h-8 rounded-full border-2 border-slate-900 overflow-hidden bg-slate-800">
-                          <img src={slide.imagem} className="w-full h-full object-cover" alt="" />
-                        </div>
-                      ))}
-                      {(post.content?.slides?.length > 5) && (
-                        <div className="w-8 h-8 rounded-full border-2 border-slate-900 bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-400">
-                          +{post.content.slides.length - 5}
-                        </div>
-                      )}
-                    </div>
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-2 mt-8">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 rounded-lg bg-slate-900 border border-white/10 text-slate-400 hover:text-white hover:border-indigo-500/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-9 h-9 rounded-lg text-sm font-bold transition-all ${
+                          currentPage === page
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                            : 'bg-slate-900 border border-white/10 text-slate-400 hover:text-white hover:border-indigo-500/30'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-2 rounded-lg bg-slate-900 border border-white/10 text-slate-400 hover:text-white hover:border-indigo-500/30 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             ) : (
               <div className="bg-slate-800/30 border border-dashed border-white/10 rounded-2xl p-12 flex flex-col items-center justify-center text-center">
                 <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mb-4 text-slate-600">
                   <AlertCircle className="w-8 h-8" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Nenhum post salvo ainda</h3>
-                <p className="text-slate-400 max-w-sm mb-6">
-                  Seus carrosséis gerados aparecerão aqui após você clicar em "Finalizar e Salvar" no editor.
-                </p>
-                <Link to="/create" className="text-indigo-400 font-bold hover:text-indigo-300 transition-colors text-sm">
-                  Começar a criar agora →
-                </Link>
+                {searchTerm ? (
+                  <>
+                    <h3 className="text-xl font-bold text-white mb-2">Nenhum resultado encontrado</h3>
+                    <p className="text-slate-400 max-w-sm mb-6">
+                      Nenhum post corresponde à busca "{searchTerm}".
+                    </p>
+                    <button onClick={() => setSearchTerm('')} className="text-indigo-400 font-bold hover:text-indigo-300 transition-colors text-sm">
+                      Limpar busca →
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-xl font-bold text-white mb-2">Nenhum post salvo ainda</h3>
+                    <p className="text-slate-400 max-w-sm mb-6">
+                      Seus carrosséis gerados aparecerão aqui após você clicar em "Finalizar e Salvar" no editor.
+                    </p>
+                    <Link to="/create" className="text-indigo-400 font-bold hover:text-indigo-300 transition-colors text-sm">
+                      Começar a criar agora →
+                    </Link>
+                  </>
+                )}
               </div>
             )}
           </div>
