@@ -89,7 +89,7 @@ export default function TrendTracker() {
   React.useEffect(() => {
     // Só faz o scan automático se não houver NENHUM dado para essa tag
     // Isso cumpre o pedido de "só mude se a pessoa realmente clicar no radar" (clicar em atualizar)
-    if (!newsData[activeTag] || newsData[activeTag].length === 0) {
+    if (activeTag !== 'Todos' && (!newsData[activeTag] || newsData[activeTag].length === 0)) {
       forceScan(true); 
     }
   }, [activeTag]);
@@ -211,6 +211,34 @@ export default function TrendTracker() {
     }
   };
 
+  const parseAgeToMinutes = (text: string) => {
+    if (!text) return 999999;
+    const str = text.toLowerCase();
+    const numMatches = str.match(/\d+/);
+    const num = numMatches ? parseInt(numMatches[0], 10) : 1;
+    if (str.includes('minuto')) return num;
+    if (str.includes('hora')) return num * 60;
+    if (str.includes('dia')) return num * 24 * 60;
+    if (str.includes('semana')) return num * 7 * 24 * 60;
+    if (str.includes('mês') || str.includes('mes')) return num * 30 * 24 * 60;
+    return 999999;
+  };
+
+  const getDisplayedNews = () => {
+    if (activeTag === 'Todos') {
+      const allNews: any[] = [];
+      tags.forEach(tag => {
+        if (newsData[tag] && Array.isArray(newsData[tag])) {
+          allNews.push(...newsData[tag].map((item: any) => ({ ...item, originalTag: tag })));
+        }
+      });
+      return allNews.sort((a, b) => parseAgeToMinutes(a.tempo) - parseAgeToMinutes(b.tempo));
+    }
+    return newsData[activeTag] || [];
+  };
+
+  const displayedNews = getDisplayedNews();
+
   return (
     <div className="bg-[#0A0A0B] text-slate-100 min-h-screen font-sans flex flex-col selection:bg-blue-500/30">
       
@@ -240,18 +268,22 @@ export default function TrendTracker() {
         </div>
         
         <div className="flex flex-col items-end gap-2">
-          <button 
-            onClick={() => forceScan()}
-            disabled={isScanning || !canUpdate(activeTag)}
-            className={`flex items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 py-3 rounded-2xl text-sm font-black transition-all shadow-xl shadow-blue-500/20 active:scale-95 disabled:opacity-50 border border-white/10`}
-          >
-            {isScanning ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />} 
-            {isScanning ? 'Rastreando Web...' : 'Atualizar Radar Agora'}
-          </button>
-          {!canUpdate(activeTag) && (
-            <span className="text-[10px] font-bold text-amber-500 animate-pulse">
-              Disponível em: {getNextUpdateText(activeTag)}
-            </span>
+          {activeTag !== 'Todos' && (
+            <>
+              <button 
+                onClick={() => forceScan()}
+                disabled={isScanning || !canUpdate(activeTag)}
+                className={`flex items-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white px-6 py-3 rounded-2xl text-sm font-black transition-all shadow-xl shadow-blue-500/20 active:scale-95 disabled:opacity-50 border border-white/10`}
+              >
+                {isScanning ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />} 
+                {isScanning ? 'Rastreando Web...' : 'Atualizar Radar Agora'}
+              </button>
+              {!canUpdate(activeTag) && (
+                <span className="text-[10px] font-bold text-amber-500 animate-pulse">
+                  Disponível em: {getNextUpdateText(activeTag)}
+                </span>
+              )}
+            </>
           )}
         </div>
       </header>
@@ -264,6 +296,20 @@ export default function TrendTracker() {
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Meus Tópicos Monitorados</h3>
             
             <div className="space-y-2 mb-6">
+              <button
+                onClick={() => setActiveTag('Todos')}
+                className={`w-full text-left px-4 py-3 rounded-xl font-bold transition-all relative overflow-hidden group ${
+                  activeTag === 'Todos' 
+                    ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30 shadow-lg shadow-blue-500/10' 
+                    : 'bg-black/40 text-slate-300 hover:bg-slate-800 border border-white/5'
+                }`}
+              >
+                <div className="flex items-center justify-between relative z-10">
+                  <span>✨ Todos (Feed Geral)</span>
+                  {activeTag === 'Todos' && <span className="w-2 h-2 rounded-full bg-blue-500"></span>}
+                </div>
+              </button>
+
               {tags.map(tag => (
                 <div
                   key={tag}
@@ -382,12 +428,15 @@ export default function TrendTracker() {
                 </div>
               ) : (
                 /* Notícias Reais vindas da API */
-                (newsData[activeTag] || []).length > 0 ? (
-                  (newsData[activeTag] || []).map((news: any) => (
-                    <div key={news.id} className="bg-slate-900 border border-white/10 hover:border-indigo-500/50 rounded-2xl p-6 transition-all group shadow-lg">
+                displayedNews.length > 0 ? (
+                  displayedNews.map((news: any, idx: number) => (
+                    <div key={news.id || idx} className="bg-slate-900 border border-white/10 hover:border-indigo-500/50 rounded-2xl p-6 transition-all group shadow-lg">
                       <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 text-xs font-bold text-slate-500 mb-2">
+                            {news.originalTag && (
+                              <span className="text-pink-400 bg-pink-400/10 px-2 py-1 rounded"># {news.originalTag}</span>
+                            )}
                             <span className="text-indigo-400 bg-indigo-400/10 px-2 py-1 rounded">{news.fonte}</span>
                             <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {news.tempo}</span>
                           </div>
