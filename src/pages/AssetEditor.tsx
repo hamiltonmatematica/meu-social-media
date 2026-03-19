@@ -80,6 +80,19 @@ export default function AssetEditor() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
+  const handleDeleteRecentAvatar = (urlToRemove: string) => {
+    setPastAvatars(prev => prev.filter(url => url !== urlToRemove));
+    try {
+      const deletedAvatars = JSON.parse(localStorage.getItem('deletedAvatars') || '[]');
+      if (!deletedAvatars.includes(urlToRemove)) {
+        deletedAvatars.push(urlToRemove);
+        localStorage.setItem('deletedAvatars', JSON.stringify(deletedAvatars));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   React.useEffect(() => {
     const fetchAvatars = async () => {
       try {
@@ -91,9 +104,14 @@ export default function AssetEditor() {
           .order('created_at', { ascending: false })
           .limit(30);
         if (data) {
+          const deletedAvatars = JSON.parse(localStorage.getItem('deletedAvatars') || '[]');
+          
           const loadedAvatars = data
             .map(p => p.content?.twitterAvatar)
-            .filter(Boolean);
+            .filter(Boolean)
+            .filter(url => !url.startsWith('blob:')) // ignora urls locais nativamente da session anterior
+            .filter(url => !deletedAvatars.includes(url));
+            
           const uniqueAvatars = Array.from(new Set(loadedAvatars));
           setPastAvatars(uniqueAvatars.slice(0, 5) as string[]);
         }
@@ -1685,11 +1703,16 @@ export default function AssetEditor() {
                                 onClick={() => setTwitterAvatar(url)}
                                 className="w-9 h-9 rounded-full border border-white/10 overflow-hidden hover:border-indigo-500 transition-all opacity-80 hover:opacity-100 block"
                               >
-                                <img src={url} alt="Recent avatar" className="w-full h-full object-cover" />
+                                <img 
+                                  src={url} 
+                                  alt="Recent avatar" 
+                                  className="w-full h-full object-cover" 
+                                  onError={() => handleDeleteRecentAvatar(url)}
+                                />
                               </button>
                               {/* Botão excluir — aparece no hover */}
                               <button
-                                onClick={() => setPastAvatars(prev => prev.filter((_, idx) => idx !== i))}
+                                onClick={() => handleDeleteRecentAvatar(url)}
                                 className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                                 title="Excluir foto"
                               >
