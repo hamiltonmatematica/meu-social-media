@@ -89,10 +89,17 @@ export default function TrendTracker() {
   React.useEffect(() => {
     // Só faz o scan automático se não houver NENHUM dado para essa tag
     // Isso cumpre o pedido de "só mude se a pessoa realmente clicar no radar" (clicar em atualizar)
-    if (activeTag !== 'Todos' && (!newsData[activeTag] || newsData[activeTag].length === 0)) {
-      forceScan(true); 
+    if (activeTag === 'Todos') {
+      const missingTags = tags.filter(t => !newsData[t] || newsData[t].length === 0);
+      if (missingTags.length > 0) {
+        forceScanAllMissing(missingTags);
+      }
+    } else {
+      if (!newsData[activeTag] || newsData[activeTag].length === 0) {
+        forceScan(true); 
+      }
     }
-  }, [activeTag]);
+  }, [activeTag, tags]);
 
   // Carregar tags do Supabase ao logar (sync cruzado entre dispositivos)
   React.useEffect(() => {
@@ -209,6 +216,31 @@ export default function TrendTracker() {
     } finally {
       setIsScanning(false);
     }
+  };
+
+  const forceScanAllMissing = async (missingTags: string[]) => {
+    setIsScanning(true);
+    let updatedData = { ...newsData };
+    let updatedDates = { ...lastUpdate };
+    
+    // Varre só as tags que não têm dados AINDA para não gastar API à toa
+    for (let tag of missingTags) {
+      try {
+        const trends = await getTrends(tag);
+        updatedData[tag] = trends;
+        updatedDates[tag] = new Date().toISOString();
+        
+        // Atualiza a UI e salva estado iterativamente para progresso visível
+        setNewsData({ ...updatedData });
+        setLastUpdate({ ...updatedDates });
+        localStorage.setItem('trendData', JSON.stringify(updatedData));
+        localStorage.setItem('trendUpdates', JSON.stringify(updatedDates));
+      } catch (err) {
+        console.error(`Erro ao carregar dados do tópico: ${tag}`, err);
+      }
+    }
+    
+    setIsScanning(false);
   };
 
   const parseAgeToMinutes = (text: string) => {
