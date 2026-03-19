@@ -286,46 +286,58 @@ export default function AssetEditor() {
         
         if (globalStyle === 'minimalist') {
            // Top Right Text
-           ctx.shadowBlur = 4;
+           ctx.shadowBlur = 8;
+           ctx.shadowColor = 'rgba(0,0,0,0.6)';
            ctx.textAlign = 'left';
-           const trPaddingX = Math.round(32 * S);
-           const trPaddingY = Math.round(48 * S);
+           const trPaddingX = paddingX; 
+           const trPaddingY = paddingX;
            
-           ctx.font = `600 ${Math.round(20 * S)}px Inter, -apple-system, Helvetica, sans-serif`;
+           const nameFontSize = Math.round(18 * S); // Match ~ text-[13px] on screen
+           const handleFontSize = Math.round(12 * S); // Match ~ text-[9px] on screen
+           
+           ctx.font = `600 ${nameFontSize}px Inter, -apple-system, Helvetica, sans-serif`;
            ctx.fillStyle = '#ffffff';
            
-           const names = (twitterName || '').split(' ');
-           let curY = trPaddingY;
+           const names = (twitterName || 'Seu Nome').split(' ');
            
-           // measure and draw line
+           // measure width to right-align the block
            let maxNameW = 0;
            names.forEach(n => {
               const w = ctx.measureText(n).width;
               if (w > maxNameW) maxNameW = w;
            });
            
+           ctx.font = `400 ${handleFontSize}px Inter, -apple-system, Helvetica, sans-serif`;
            const handleW = ctx.measureText(twitterHandle || '').width;
            if (handleW > maxNameW) maxNameW = handleW;
            
-           const trX = CANVAS_W - trPaddingX - maxNameW;
+           const blockW = maxNameW;
+           const trX = CANVAS_W - trPaddingX - blockW;
            
-           // white line
+           // white line on top
            ctx.beginPath();
-           ctx.moveTo(trX - Math.round(16 * S), trPaddingY - Math.round(20 * S));
-           ctx.lineTo(CANVAS_W - trPaddingX, trPaddingY - Math.round(20 * S));
+           ctx.moveTo(trX, trPaddingY);
+           ctx.lineTo(CANVAS_W - trPaddingX, trPaddingY);
            ctx.lineWidth = Math.round(2 * S);
-           ctx.strokeStyle = '#ffffff';
+           ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
            ctx.stroke();
 
+           let curY = trPaddingY + Math.round(12 * S) + nameFontSize; 
+           
+           ctx.font = `600 ${nameFontSize}px Inter, -apple-system, Helvetica, sans-serif`;
            names.forEach((n, i) => {
              ctx.fillText(n, trX, curY);
-             curY += Math.round(24 * S);
+             curY += Math.round(nameFontSize * 1.15); // line height for name
            });
            
-           ctx.font = `400 ${Math.round(14 * S)}px Inter, -apple-system, Helvetica, sans-serif`;
+           ctx.font = `500 ${handleFontSize}px Inter, -apple-system, Helvetica, sans-serif`;
+           ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; // Text white/90
            ctx.fillText(twitterHandle || '', trX, curY + Math.round(4 * S));
            
+           // Cleanup
            ctx.textAlign = align as CanvasTextAlign;
+           ctx.shadowBlur = 0;
+           ctx.shadowColor = 'transparent';
         }
       } else {
         // Centered
@@ -1463,13 +1475,13 @@ export default function AssetEditor() {
                             <span key={i} className="font-semibold text-[13px] text-white leading-tight break-words max-w-[120px]">{n}</span>
                           ))}
                         </div>
-                        <span className="text-[9px] text-white/90 mt-1 truncate max-w-[120px]">{twitterHandle}</span>
+                        <span className="text-[9px] font-medium text-white/90 mt-1 truncate max-w-[120px]">{twitterHandle}</span>
                       </div>
                     </div>
 
                     <div className={`mt-auto ${mockSlides[currentSlide].alinhamento || 'text-left'}`}>
                       <h3 
-                        className={`text-3xl md:text-3xl font-semibold leading-tight mb-3 drop-shadow-lg ${currentFont} ${textBold ? 'font-black' : ''} ${textUppercase ? 'uppercase' : ''}`}
+                        className={`text-3xl md:text-3xl font-bold leading-tight mb-3 drop-shadow-lg ${currentFont} ${textBold ? 'font-black' : ''} ${textUppercase ? 'uppercase' : ''}`}
                         style={{ color: titleColor }}
                       >
                         {mockSlides[currentSlide].titulo}
