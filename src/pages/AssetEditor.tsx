@@ -63,7 +63,7 @@ export default function AssetEditor() {
   const [sources, setSources] = useState<any[]>(incomingData?.sources || []);
   
   // Estilos de Layout
-  const [globalStyle, setGlobalStyle] = useState<'classic' | 'centered' | 'twitter' | 'magazine'>(incomingData?.globalStyle || 'classic');
+  const [globalStyle, setGlobalStyle] = useState<'classic' | 'centered' | 'twitter' | 'magazine' | 'minimalist'>(incomingData?.globalStyle || 'classic');
   const [twitterName, setTwitterName] = useState(incomingData?.twitterName || '');
   const [twitterHandle, setTwitterHandle] = useState(incomingData?.twitterHandle || '');
   const [twitterAvatar, setTwitterAvatar] = useState(incomingData?.twitterAvatar || '');
@@ -229,12 +229,16 @@ export default function AssetEditor() {
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
       }
       
-      // Degradê
       const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
       if (globalStyle === 'centered') {
         grad.addColorStop(0, 'rgba(0,0,0,0.8)');
         grad.addColorStop(0.5, 'rgba(0,0,0,0.6)');
         grad.addColorStop(1, 'rgba(0,0,0,0.8)');
+      } else if (globalStyle === 'minimalist') {
+        grad.addColorStop(0, 'rgba(0,0,0,0.4)');
+        grad.addColorStop(0.2, 'rgba(0,0,0,0.0)');
+        grad.addColorStop(0.7, 'rgba(0,0,0,0.0)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.6)');
       } else { // classic
         grad.addColorStop(0, 'rgba(0,0,0,0.08)');
         grad.addColorStop(0.35, 'rgba(0,0,0,0.12)');
@@ -254,7 +258,7 @@ export default function AssetEditor() {
     const textX = align === 'center' ? CANVAS_W / 2 : align === 'right' ? CANVAS_W - paddingX : paddingX;
     const maxWidth = CANVAS_W - (paddingX * 2);
 
-    if (globalStyle === 'classic' || globalStyle === 'centered') {
+    if (globalStyle === 'classic' || globalStyle === 'centered' || globalStyle === 'minimalist') {
       const titleWeight = textBold ? '900' : '800';
       const titleFontSize = Math.round(36 * S);
       const titleLineHeight = Math.round(titleFontSize * 1.25);
@@ -270,8 +274,8 @@ export default function AssetEditor() {
       let textStartY = 0;
       let titleStartY = 0;
 
-      if (globalStyle === 'classic') {
-        const bottomMargin = Math.round(48 * S);
+      if (globalStyle === 'classic' || globalStyle === 'minimalist') {
+        const bottomMargin = Math.round((globalStyle === 'minimalist' ? 80 : 48) * S);
         const gapTitleBody = Math.round(36 * S); 
         
         const lastBodyY = CANVAS_H - bottomMargin;
@@ -279,6 +283,50 @@ export default function AssetEditor() {
         
         const lastTitleY = textStartY - gapTitleBody;
         titleStartY = lastTitleY - ((titleLines.length - 1) * titleLineHeight);
+        
+        if (globalStyle === 'minimalist') {
+           // Top Right Text
+           ctx.shadowBlur = 4;
+           ctx.textAlign = 'left';
+           const trPaddingX = Math.round(32 * S);
+           const trPaddingY = Math.round(48 * S);
+           
+           ctx.font = `600 ${Math.round(20 * S)}px Inter, -apple-system, Helvetica, sans-serif`;
+           ctx.fillStyle = '#ffffff';
+           
+           const names = (twitterName || '').split(' ');
+           let curY = trPaddingY;
+           
+           // measure and draw line
+           let maxNameW = 0;
+           names.forEach(n => {
+              const w = ctx.measureText(n).width;
+              if (w > maxNameW) maxNameW = w;
+           });
+           
+           const handleW = ctx.measureText(twitterHandle || '').width;
+           if (handleW > maxNameW) maxNameW = handleW;
+           
+           const trX = CANVAS_W - trPaddingX - maxNameW;
+           
+           // white line
+           ctx.beginPath();
+           ctx.moveTo(trX - Math.round(16 * S), trPaddingY - Math.round(20 * S));
+           ctx.lineTo(CANVAS_W - trPaddingX, trPaddingY - Math.round(20 * S));
+           ctx.lineWidth = Math.round(2 * S);
+           ctx.strokeStyle = '#ffffff';
+           ctx.stroke();
+
+           names.forEach((n, i) => {
+             ctx.fillText(n, trX, curY);
+             curY += Math.round(24 * S);
+           });
+           
+           ctx.font = `400 ${Math.round(14 * S)}px Inter, -apple-system, Helvetica, sans-serif`;
+           ctx.fillText(twitterHandle || '', trX, curY + Math.round(4 * S));
+           
+           ctx.textAlign = align as CanvasTextAlign;
+        }
       } else {
         // Centered
         const totalTitleHeight = titleLines.length * titleLineHeight;
@@ -1404,6 +1452,38 @@ export default function AssetEditor() {
                   </div>
                 )}
 
+                {/* Textos: MODO MINIMALIST */}
+                {globalStyle === 'minimalist' && (
+                  <div className="absolute inset-0 flex flex-col p-8">
+                    {/* Top Right */}
+                    <div className="flex justify-end w-full mb-auto drop-shadow-lg">
+                      <div className="flex flex-col border-t-2 border-white/80 pt-3">
+                        <div className="flex flex-col">
+                          {(twitterName || 'Seu Nome').split(' ').map((n, i) => (
+                            <span key={i} className="font-semibold text-[13px] text-white leading-tight break-words max-w-[120px]">{n}</span>
+                          ))}
+                        </div>
+                        <span className="text-[9px] text-white/90 mt-1 truncate max-w-[120px]">{twitterHandle}</span>
+                      </div>
+                    </div>
+
+                    <div className={`mt-auto ${mockSlides[currentSlide].alinhamento || 'text-left'}`}>
+                      <h3 
+                        className={`text-3xl md:text-3xl font-semibold leading-tight mb-3 drop-shadow-lg ${currentFont} ${textBold ? 'font-black' : ''} ${textUppercase ? 'uppercase' : ''}`}
+                        style={{ color: titleColor }}
+                      >
+                        {mockSlides[currentSlide].titulo}
+                      </h3>
+                      <p 
+                       className="text-sm leading-relaxed drop-shadow-lg font-medium"
+                        style={{ color: textColor }}
+                      >
+                        {mockSlides[currentSlide].texto}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Textos: MODO TWITTER */}
                 {globalStyle === 'twitter' && (
                   <div className="absolute inset-0 flex flex-col p-6 overflow-hidden text-left" style={{ backgroundColor: mockSlides[currentSlide].bgColor || '#ffffff' }}>
@@ -1655,10 +1735,16 @@ export default function AssetEditor() {
                   >
                     📖 Magazine
                   </button>
+                  <button 
+                    onClick={() => setGlobalStyle('minimalist')} 
+                    className={`flex-1 py-1.5 text-xs col-span-2 rounded-lg border transition-all ${globalStyle === 'minimalist' ? 'bg-indigo-500 border-indigo-400 text-white shadow-lg' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}
+                  >
+                    ✨ Minimalista (Premium)
+                  </button>
                 </div>
               </div>
 
-              {(globalStyle === 'twitter' || globalStyle === 'magazine') && (
+              {(globalStyle === 'twitter' || globalStyle === 'magazine' || globalStyle === 'minimalist') && (
                 <div className="space-y-3 pt-2">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
