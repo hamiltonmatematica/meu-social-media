@@ -123,6 +123,7 @@ REGRAS CRÍTICAS DE FILTRAGEM E SELEÇÃO:
 3. As notícias devem ser inovadoras, polêmicas, ou trazer uma novidade muito forte (ex: "Nova mudança no algoritmo", "Estratégia vazada", "Crescimento absurdo de mercado X").
 4. As notícias devem ser 100% relevantes para o nicho/tópico pedido.
 5. Só inclua notícias relacionadas a IA se o tópico em si for sobre IA, ou se a notícia for INTRINSECAMENTE inseparável do tópico (ex: regulamentação que afeta o setor diretamente).
+6. RECENTE A QUALQUER CUSTO: Só traga dados das ULTIMAS 24H. Seja EXATO na hora de preencher o tempo (ex: "Há 2 horas", "Há 45 minutos"). Traga as mais recentes primeiro!
 
 Responda EXCLUSIVAMENTE em formato JSON (um array de objetos).
 
@@ -139,7 +140,7 @@ Esquema JSON:
           },
           {
             role: "user",
-            content: `Liste 3 notícias ou tendências com ALTO POTENCIAL DE VIRALIZAÇÃO de forma EXCLUSIVA sobre "${topic}". Elas precisam estar bombando agora ou tendo pico de buscas. Não traga notícias sobre inteligência artificial/IA, a menos que "${topic}" seja especificamente sobre IA.`,
+            content: `Liste 3 notícias super recentes (últimas horas) e de ALTO POTENCIAL DE VIRALIZAÇÃO de forma EXCLUSIVA sobre "${topic}". Elas precisam estar bombando. Não traga notícias sobre inteligência artificial/IA, a menos que "${topic}" seja especificamente sobre IA.`,
           },
         ],
       }),

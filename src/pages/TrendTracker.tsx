@@ -257,16 +257,17 @@ export default function TrendTracker() {
   };
 
   const getDisplayedNews = () => {
+    let list: any[] = [];
     if (activeTag === 'Todos') {
-      const allNews: any[] = [];
       tags.forEach(tag => {
         if (newsData[tag] && Array.isArray(newsData[tag])) {
-          allNews.push(...newsData[tag].map((item: any) => ({ ...item, originalTag: tag })));
+          list.push(...newsData[tag].map((item: any) => ({ ...item, originalTag: tag })));
         }
       });
-      return allNews.sort((a, b) => parseAgeToMinutes(a.tempo) - parseAgeToMinutes(b.tempo));
+    } else {
+      list = [...(newsData[activeTag] || [])];
     }
-    return newsData[activeTag] || [];
+    return list.sort((a, b) => parseAgeToMinutes(a.tempo) - parseAgeToMinutes(b.tempo));
   };
 
   const displayedNews = getDisplayedNews();
