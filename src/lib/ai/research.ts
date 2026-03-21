@@ -114,14 +114,15 @@ export async function getTrends(topic: string) {
         messages: [
           {
             role: "system",
-            content: `Você é um analista de tendências de redes sociais. SEMPRE responda em português brasileiro (pt-BR). 
-Pesquise as 3 notícias ou tendências MAIS RECENTES e VIRAIS sobre o tópico "${topic}".
+            content: `Você é um analista experiente de tendências de redes sociais e viralização. SEMPRE responda em português brasileiro (pt-BR). 
+Pesquise as 3 notícias ou tendências MAIS RECENTES emergentes sobre o tópico "${topic}".
 
-REGRAS CRÍTICAS DE FILTRAGEM:
+REGRAS CRÍTICAS DE FILTRAGEM E SELEÇÃO:
 1. Mantenha o foco ESTRITAMENTE no tópico "${topic}". NÃO desvie o assunto para inteligência artificial, IA, ChatGPT, automação com IA ou qualquer ferramenta de IA, A MENOS que o tópico solicitado seja EXPLICITAMENTE sobre inteligência artificial (ex: "Inteligência Artificial", "IA", "Machine Learning", "ChatGPT").
-2. As notícias devem ser 100% relevantes para o nicho/tópico pedido. Se o tópico for "Marketing Digital", traga notícias sobre algoritmos de redes sociais, estratégias de conteúdo, métricas, tráfego, growth — NÃO sobre "IA aplicada ao marketing" ou "Nova ferramenta de IA para marketing".
-3. Se o tópico for "Empreendedorismo", traga notícias sobre startups, modelos de negócio, investimentos, tendências de mercado — NÃO sobre "IA revolucionando empreendedorismo".
-4. Só inclua notícias relacionadas a IA se o tópico em si for sobre IA, ou se a notícia for INTRINSECAMENTE inseparável do tópico (ex: regulamentação que afeta o setor diretamente).
+2. POTENCIAL VIRAL: Selecione APENAS notícias que tenham ALTÍSSIMA CHANCE de viralizar ou que estejam demonstrando um PICO SIGNIFICATIVO de procura nas últimas horas. Ignore notícias mornas ou corporativas chatas.
+3. As notícias devem ser inovadoras, polêmicas, ou trazer uma novidade muito forte (ex: "Nova mudança no algoritmo", "Estratégia vazada", "Crescimento absurdo de mercado X").
+4. As notícias devem ser 100% relevantes para o nicho/tópico pedido.
+5. Só inclua notícias relacionadas a IA se o tópico em si for sobre IA, ou se a notícia for INTRINSECAMENTE inseparável do tópico (ex: regulamentação que afeta o setor diretamente).
 
 Responda EXCLUSIVAMENTE em formato JSON (um array de objetos).
 
@@ -129,16 +130,16 @@ Esquema JSON:
 [
   {
     "id": 1,
-    "titulo": "Título da notícia",
+    "titulo": "Título da notícia em tom de Hook/Gatilho",
     "fonte": "Canal Original",
     "tempo": "Há X horas",
-    "resumo": "Texto curto explicativo."
+    "resumo": "Texto curto explicativo do motivo desta notícia estar bombando ou prestes a viralizar."
   }
 ]`,
           },
           {
             role: "user",
-            content: `O que está acontecendo agora de mais relevante EXCLUSIVAMENTE sobre "${topic}"? Não traga notícias sobre inteligência artificial ou ferramentas de IA, a menos que "${topic}" seja especificamente sobre IA.`,
+            content: `Liste 3 notícias ou tendências com ALTO POTENCIAL DE VIRALIZAÇÃO de forma EXCLUSIVA sobre "${topic}". Elas precisam estar bombando agora ou tendo pico de buscas. Não traga notícias sobre inteligência artificial/IA, a menos que "${topic}" seja especificamente sobre IA.`,
           },
         ],
       }),

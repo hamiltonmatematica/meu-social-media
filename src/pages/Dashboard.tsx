@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Clock, CheckCircle2, AlertCircle, Download, ExternalLink, RefreshCw, Trash2, UserPlus, LogOut, Sparkles, Search, ChevronLeft, ChevronRight } from 'lucide-react';
-
+import Joyride, { Step, CallBackProps, STATUS } from 'react-joyride';
 const POSTS_PER_PAGE = 12;
 
 export default function Dashboard() {
@@ -15,6 +15,48 @@ export default function Dashboard() {
   const [currentPage, setCurrentPage] = React.useState(1);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
   const navigate = useNavigate();
+
+  const [runTour, setRunTour] = React.useState(false);
+
+  React.useEffect(() => {
+    const hasSeenTour = localStorage.getItem('hasSeenDashboardTour');
+    if (!hasSeenTour) {
+      // Delay so elements can render before tour starts
+      setTimeout(() => setRunTour(true), 500);
+    }
+  }, []);
+
+  const handleJoyrideCallback = (data: CallBackProps) => {
+    const { status } = data;
+    if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+      localStorage.setItem('hasSeenDashboardTour', 'true');
+      setRunTour(false);
+    }
+  };
+
+  const steps: Step[] = [
+    {
+      target: '.tour-step-1',
+      content: 'Bem-vindo! Este é o seu painel central onde tudo acontece.',
+      disableBeacon: true,
+      placement: 'bottom',
+    },
+    {
+      target: '.tour-step-2',
+      content: 'Inicie a criação rápida do seu post mágico recheado de IA por aqui.',
+      placement: 'bottom',
+    },
+    {
+      target: '.tour-step-3',
+      content: 'Seus inúmeros tópicos podem ser facilmente pesquisados por esta aba.',
+      placement: 'bottom-start',
+    },
+    {
+      target: '.tour-step-4',
+      content: 'Seu histórico e biblioteca de posts salvos aparecerão em grades prontas para editar e usar.',
+      placement: 'top',
+    }
+  ];
 
   React.useEffect(() => {
     fetchPosts();
@@ -98,6 +140,42 @@ export default function Dashboard() {
 
   return (
     <div className="bg-slate-900 text-slate-100 flex h-screen overflow-hidden">
+      <Joyride
+        steps={steps}
+        run={runTour}
+        continuous
+        showProgress
+        showSkipButton
+        callback={handleJoyrideCallback}
+        locale={{
+          back: 'Anterior',
+          close: 'Fechar',
+          last: 'Entendido!',
+          next: 'Avançar',
+          skip: 'Pular'
+        }}
+        styles={{
+          options: {
+            primaryColor: '#4f46e5',
+            backgroundColor: '#1e293b',
+            textColor: '#f8fafc',
+            arrowColor: '#1e293b',
+            overlayColor: 'rgba(0, 0, 0, 0.75)',
+            zIndex: 1000,
+          },
+          buttonNext: {
+            backgroundColor: '#4f46e5',
+            fontWeight: 'bold',
+          },
+          buttonBack: {
+            color: '#94a3b8',
+            marginRight: 10,
+          },
+          buttonSkip: {
+            color: '#94a3b8',
+          }
+        }}
+      />
       {/* BEGIN: Sidebar */}
       <aside className="hidden md:flex w-64 bg-slate-800 border-r border-slate-700 flex-col">
         <div className="p-6 flex items-center space-x-3">
@@ -176,10 +254,10 @@ export default function Dashboard() {
         {/* BEGIN: TopHeader */}
         <header className="h-auto min-h-[4rem] py-3 md:py-0 md:h-16 border-b border-slate-800 px-4 md:px-8 flex flex-wrap items-center justify-between sticky top-0 bg-slate-950/80 backdrop-blur-md z-10 gap-3">
           <div>
-            <h1 className="text-xl font-bold">Visão Geral do Painel</h1>
+            <h1 className="tour-step-1 text-xl font-bold">Visão Geral do Painel</h1>
           </div>
           <div className="flex items-center space-x-4">
-            <Link to="/create" className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-sm font-black transition-all shadow-lg shadow-indigo-500/20 flex items-center space-x-2">
+            <Link to="/create" className="tour-step-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-sm font-black transition-all shadow-lg shadow-indigo-500/20 flex items-center space-x-2">
               <span>+ Novo Post</span>
             </Link>
           </div>
@@ -200,7 +278,7 @@ export default function Dashboard() {
                 </span>
               </div>
               <div className="flex items-center gap-3 w-full sm:w-auto">
-                <div className="relative flex-1 sm:flex-initial">
+                <div className="tour-step-3 relative flex-1 sm:flex-initial">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input
                     type="text"
@@ -220,14 +298,14 @@ export default function Dashboard() {
             </div>
 
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 tour-step-4">
                 {[1, 2, 3, 4, 5, 6].map(i => (
                   <div key={i} className="h-40 bg-slate-800/50 rounded-2xl animate-pulse border border-white/5"></div>
                 ))}
               </div>
             ) : paginatedPosts.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 tour-step-4">
                   {paginatedPosts.map((post) => (
                     <div 
                       key={post.id} 
@@ -310,7 +388,7 @@ export default function Dashboard() {
                 )}
               </>
             ) : (
-              <div className="bg-slate-800/30 border border-dashed border-white/10 rounded-2xl p-12 flex flex-col items-center justify-center text-center">
+              <div className="tour-step-4 bg-slate-800/30 border border-dashed border-white/10 rounded-2xl p-12 flex flex-col items-center justify-center text-center">
                 <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mb-4 text-slate-600">
                   <AlertCircle className="w-8 h-8" />
                 </div>
