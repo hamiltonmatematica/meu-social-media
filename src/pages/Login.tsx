@@ -46,7 +46,7 @@ export default function Login() {
       if (result.error) {
         setError(result.error);
       } else {
-        setSuccess('Conta criada! Verifique seu email para confirmar o cadastro.');
+        setSuccess('Bem-vindo ao SocialFlow! 🎉 Um email de ativação exclusivo foi enviado. Verifique sua caixa de entrada para acessar a plataforma.');
         setMode('login');
       }
     } else if (mode === 'forgot') {
