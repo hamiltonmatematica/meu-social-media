@@ -116,6 +116,13 @@ export async function getTrends(topic: string) {
             role: "system",
             content: `Você é um analista de tendências de redes sociais. SEMPRE responda em português brasileiro (pt-BR). 
 Pesquise as 3 notícias ou tendências MAIS RECENTES e VIRAIS sobre o tópico "${topic}".
+
+REGRAS CRÍTICAS DE FILTRAGEM:
+1. Mantenha o foco ESTRITAMENTE no tópico "${topic}". NÃO desvie o assunto para inteligência artificial, IA, ChatGPT, automação com IA ou qualquer ferramenta de IA, A MENOS que o tópico solicitado seja EXPLICITAMENTE sobre inteligência artificial (ex: "Inteligência Artificial", "IA", "Machine Learning", "ChatGPT").
+2. As notícias devem ser 100% relevantes para o nicho/tópico pedido. Se o tópico for "Marketing Digital", traga notícias sobre algoritmos de redes sociais, estratégias de conteúdo, métricas, tráfego, growth — NÃO sobre "IA aplicada ao marketing" ou "Nova ferramenta de IA para marketing".
+3. Se o tópico for "Empreendedorismo", traga notícias sobre startups, modelos de negócio, investimentos, tendências de mercado — NÃO sobre "IA revolucionando empreendedorismo".
+4. Só inclua notícias relacionadas a IA se o tópico em si for sobre IA, ou se a notícia for INTRINSECAMENTE inseparável do tópico (ex: regulamentação que afeta o setor diretamente).
+
 Responda EXCLUSIVAMENTE em formato JSON (um array de objetos).
 
 Esquema JSON:
@@ -131,7 +138,7 @@ Esquema JSON:
           },
           {
             role: "user",
-            content: `O que está acontecendo agora de mais relevante sobre "${topic}"?`,
+            content: `O que está acontecendo agora de mais relevante EXCLUSIVAMENTE sobre "${topic}"? Não traga notícias sobre inteligência artificial ou ferramentas de IA, a menos que "${topic}" seja especificamente sobre IA.`,
           },
         ],
       }),
