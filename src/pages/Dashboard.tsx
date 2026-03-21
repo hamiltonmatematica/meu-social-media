@@ -355,10 +355,6 @@ export default function Dashboard() {
         <Link to="/create" className="flex flex-col items-center bg-blue-600 text-white p-3 rounded-full -mt-8 border-4 border-slate-900 shadow-lg">
           <span className="material-symbols-outlined">add</span>
         </Link>
-        <Link to="/dna" className="flex flex-col items-center text-slate-400 hover:text-slate-200">
-          <span className="material-symbols-outlined text-xl">genetics</span>
-          <span className="text-[10px] font-medium mt-1">DNA</span>
-        </Link>
         <Link to="/billing" className="flex flex-col items-center text-slate-400 hover:text-slate-200">
           <span className="material-symbols-outlined text-xl">credit_card</span>
           <span className="text-[10px] font-medium mt-1">Vendas</span>
