@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-purple: #8a2be2;
+  --color-brand-blue: #00d2ff;
+  --color-brand-green: #22c55e;
+  
+  --font-inter: 'Inter', sans-serif;
+}
+
+@layer base {
+  :root {
+    --bg-primary: #0a0b10;
+    --text-primary: #ffffff;
+    --text-secondary: #94a3b8;
+    --border-glass: rgba(255, 255, 255, 0.08);
+    --bg-glass: rgba(20, 22, 30, 0.7);
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-inter);
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-[var(--bg-glass)] backdrop-blur-xl border border-[var(--border-glass)] rounded-2xl shadow-2xl;
+  }
+  
+  .input-field {
+    @apply w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-purple-600 to-blue-500 text-white font-bold py-3 px-6 rounded-lg hover:shadow-[0_0_20px_rgba(138,43,226,0.5)] transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-white/5 border border-white/10 text-slate-300 font-medium py-3 px-6 rounded-lg hover:bg-white/10 transition-all active:scale-95;
+  }
+}
+
+/* Background animated glow */
+body::before, body::after {
+  content: '';
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  filter: blur(120px);
+  z-index: -1;
+  opacity: 0.12;
+  animation: drift 25s infinite ease-in-out alternate;
+}
+body::before { top: -200px; left: -200px; background: #8a2be2; }
+body::after { bottom: -200px; right: -200px; background: #00d2ff; animation-delay: -12s; }
+@keyframes drift {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(60px, 40px) scale(1.15); }
+  100% { transform: translate(-40px, -30px) scale(0.9); }
+}

@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "name": "react-example",
   "private": true,
   "version": "0.0.0",
@@ -40,4 +41,36 @@
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }
+=======
+  "name": "cpcore",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.101.1",
+    "next": "^16.1.6",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.1",
+    "@types/node": "^20.19.37",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.1.6",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.9.3"
+  },
+  "description": "This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).",
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+>>>>>>> 3983e56 (feat: implementada Proteção Máxima e Tutorial PT-BR)
 }
